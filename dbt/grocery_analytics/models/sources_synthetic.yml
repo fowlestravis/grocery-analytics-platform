@@ -1,0 +1,29 @@
+version: 2
+
+sources:
+  - name: synthetic_grocery
+    description: Synthetic grocery data with known elasticities
+    database: grocery_analytics
+    schema: raw
+    tables:
+      - name: synthetic_transactions
+        description: Daily transaction data (434K records, 2022-2024)
+        columns:
+          - name: transaction_date
+            tests: [not_null]
+          - name: store_id
+            tests: [not_null]
+          - name: upc
+            tests: [not_null]
+            
+      - name: synthetic_products
+        description: Product master with true elasticities
+        columns:
+          - name: upc
+            tests: [unique, not_null]
+            
+      - name: synthetic_stores
+        description: Store locations and attributes
+        columns:
+          - name: store_id
+            tests: [unique, not_null]

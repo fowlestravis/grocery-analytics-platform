@@ -1,0 +1,42 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw data loaded from CSV files
+    schema: public
+    tables:
+      - name: raw_products
+        description: Product master data
+        columns:
+          - name: sku
+            description: Product SKU (unique identifier)
+            tests:
+              - unique
+              - not_null
+
+      - name: raw_stores
+        description: Store master data
+        columns:
+          - name: store_id
+            description: Store ID (unique identifier)
+            tests:
+              - unique
+              - not_null
+
+      - name: raw_transactions
+        description: Transaction line items
+        columns:
+          - name: store_id
+            tests:
+              - not_null
+          - name: sku
+            tests:
+              - not_null
+
+      - name: raw_inventory
+        description: Kaggle grocery inventory data
+        columns:
+          - name: product_id
+            description: Product ID (unique identifier)
+            tests:
+              - not_null

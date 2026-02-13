@@ -1,0 +1,44 @@
+[0m14:22:18.254755 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x1043e2d20>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x1057a6f00>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x1057a6c60>]}
+
+
+============================== 14:22:18.257299 | a06741f1-18c2-48c9-9a9d-882390888fda ==============================
+[0m14:22:18.257299 [info ] [MainThread]: Running with dbt=1.11.2
+[0m14:22:18.257532 [debug] [MainThread]: running dbt with arguments {'quiet': 'False', 'version_check': 'True', 'fail_fast': 'False', 'empty': 'None', 'warn_error': 'None', 'target_path': 'None', 'printer_width': '80', 'introspect': 'True', 'static_parser': 'True', 'debug': 'False', 'cache_selected_only': 'False', 'write_json': 'True', 'partial_parse': 'True', 'indirect_selection': 'eager', 'profiles_dir': '/Users/travisfowles/.dbt', 'use_colors': 'True', 'warn_error_options': 'WarnErrorOptionsV2(error=[], warn=[], silence=[])', 'invocation_command': 'dbt init grocery_analytics', 'use_experimental_parser': 'False', 'log_format': 'default', 'send_anonymous_usage_stats': 'True', 'log_path': 'logs', 'no_print': 'None', 'log_cache_events': 'False'}
+[0m14:22:18.264430 [info ] [MainThread]: Creating dbt configuration folder at /Users/travisfowles/.dbt
+[0m14:22:18.265077 [debug] [MainThread]: Starter project path: /Users/travisfowles/grocery-analytics-platform/venv/lib/python3.12/site-packages/dbt/include/starter_project
+[0m14:22:18.267966 [info ] [MainThread]: 
+Your new dbt project "grocery_analytics" was created!
+
+For more information on how to configure the profiles.yml file,
+please consult the dbt documentation here:
+
+  https://docs.getdbt.com/docs/configure-your-profile
+
+One more thing:
+
+Need help? Don't hesitate to reach out to us via GitHub issues or on Slack:
+
+  https://community.getdbt.com/
+
+Happy modeling!
+
+[0m14:22:18.268108 [info ] [MainThread]: Setting up your profile.
+[0m14:23:22.236495 [info ] [MainThread]: Profile grocery_analytics written to /Users/travisfowles/.dbt/profiles.yml using target's profile_template.yml and your supplied values. Run 'dbt debug' to validate the connection.
+[0m14:23:22.268010 [debug] [MainThread]: Resource report: {"command_name": "init", "command_success": true, "command_wall_clock_time": 64.04297, "process_in_blocks": "0", "process_kernel_time": 0.124921, "process_mem_max_rss": "108986368", "process_out_blocks": "0", "process_user_time": 0.521237}
+[0m14:23:22.269267 [debug] [MainThread]: Command `dbt init` succeeded at 14:23:22.269035 after 64.04 seconds
+[0m14:23:22.270262 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x1057a6cf0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x1043e2d20>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x104826e70>]}
+[0m14:23:22.270930 [debug] [MainThread]: Flushing usage events
+[0m14:23:22.720024 [debug] [MainThread]: An error was encountered while trying to flush usage events
+[0m09:56:55.503320 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'start', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10941e210>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10944b350>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10944b0e0>]}
+
+
+============================== 09:56:55.505873 | ae6be1f5-fe56-4256-9b70-ae5898cbd5ad ==============================
+[0m09:56:55.505873 [info ] [MainThread]: Running with dbt=1.7.4
+[0m09:56:55.506096 [debug] [MainThread]: running dbt with arguments {'log_cache_events': 'False', 'fail_fast': 'False', 'no_print': 'None', 'log_path': 'logs', 'version_check': 'True', 'warn_error': 'None', 'partial_parse': 'True', 'printer_width': '80', 'introspect': 'True', 'cache_selected_only': 'False', 'debug': 'False', 'static_parser': 'True', 'use_colors': 'True', 'warn_error_options': 'WarnErrorOptions(include=[], exclude=[])', 'use_experimental_parser': 'False', 'send_anonymous_usage_stats': 'True', 'target_path': 'None', 'quiet': 'False', 'profiles_dir': '/Users/travisfowles/.dbt', 'indirect_selection': 'eager', 'write_json': 'True', 'log_format': 'default', 'invocation_command': 'dbt run --select tag:synthetic'}
+[0m09:56:55.506292 [error] [MainThread]: Encountered an error:
+Runtime Error
+  No dbt_project.yml found at expected path /Users/travisfowles/grocery-analytics-platform/dbt/dbt_project.yml
+  Verify that each entry within packages.yml (and their transitive dependencies) contains a file named dbt_project.yml
+  
+[0m09:56:55.519912 [debug] [MainThread]: Sending event: {'category': 'dbt', 'action': 'invocation', 'label': 'end', 'context': [<snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x109402f00>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x1091235c0>, <snowplow_tracker.self_describing_json.SelfDescribingJson object at 0x10944b230>]}
+[0m09:56:55.520053 [debug] [MainThread]: Flushing usage events

@@ -1,0 +1,34 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Environment
+.env
+config/.env
+
+# Data files (too large for git)
+data/
+*.csv
+*.parquet
+
+# dbt
+dbt/grocery_analytics/target/
+dbt/grocery_analytics/dbt_packages/
+dbt/grocery_analytics/logs/
+
+# Airflow
+airflow/logs/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Outputs (generated files)
+validation_results/*.png
+validation_results/*.csv
