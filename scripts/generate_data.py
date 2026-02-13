@@ -1,149 +1,175 @@
 import pandas as pd
+import numpy as np
 import random
 from datetime import datetime, timedelta
 from faker import Faker
 import os
 
 fake = Faker()
+np.random.seed(42)
 random.seed(42)
 
 # Configuration
-NUM_STORES = 20
-NUM_PRODUCTS = 500
-NUM_DAYS = 180
+NUM_STORES = 12
+NUM_DAYS = 365 * 2  # 2 years of daily data
 OUTPUT_DIR = 'data/raw'
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-print("Generating grocery retail data...")
+print("Generating synthetic grocery data with known elasticities...")
 
 # === GENERATE PRODUCTS ===
+# Each product gets a true_elasticity that the demand function will use.
+# Elasticities are negative (law of demand) and vary by category.
 print("Generating products...")
 
-departments = {
-    'Produce': {'categories': ['Organic Produce', 'Conventional Produce', 'Herbs'], 'price_range': (0.99, 8.99), 'perishable': True},
-    'Meat & Seafood': {'categories': ['Fresh Meat', 'Poultry', 'Seafood'], 'price_range': (4.99, 29.99), 'perishable': True},
-    'Dairy': {'categories': ['Milk & Cream', 'Cheese', 'Yogurt', 'Eggs'], 'price_range': (2.99, 12.99), 'perishable': True},
-    'Bakery': {'categories': ['Fresh Bread', 'Pastries', 'Cakes'], 'price_range': (2.99, 15.99), 'perishable': True},
-    'Deli': {'categories': ['Prepared Foods', 'Deli Meats', 'Salads'], 'price_range': (5.99, 14.99), 'perishable': True},
-    'Frozen': {'categories': ['Frozen Meals', 'Ice Cream', 'Frozen Vegetables'], 'price_range': (3.99, 12.99), 'perishable': False},
-    'Grocery': {'categories': ['Canned Goods', 'Pasta & Grains', 'Snacks', 'Beverages'], 'price_range': (1.99, 8.99), 'perishable': False},
-    'Health & Beauty': {'categories': ['Personal Care', 'Vitamins', 'Cosmetics'], 'price_range': (3.99, 24.99), 'perishable': False}
+categories = {
+    'Dairy': {
+        'items': ['Whole Milk', '2% Milk', 'Greek Yogurt', 'Cheddar Cheese', 'Butter', 'Cream Cheese', 'Cottage Cheese', 'Sour Cream'],
+        'elasticity_range': (-1.0, -0.5),   # Staples: relatively inelastic
+        'base_price_range': (2.99, 6.99),
+        'base_quantity_range': (80, 200),
+    },
+    'Produce': {
+        'items': ['Bananas', 'Apples', 'Strawberries', 'Avocados', 'Tomatoes', 'Lettuce', 'Broccoli', 'Bell Peppers'],
+        'elasticity_range': (-1.5, -0.8),
+        'base_price_range': (0.99, 4.99),
+        'base_quantity_range': (100, 250),
+    },
+    'Snacks': {
+        'items': ['Potato Chips', 'Pretzels', 'Cookies', 'Crackers', 'Popcorn', 'Trail Mix', 'Granola Bars', 'Candy'],
+        'elasticity_range': (-2.5, -1.5),   # Discretionary: more elastic
+        'base_price_range': (2.99, 5.99),
+        'base_quantity_range': (40, 120),
+    },
+    'Beverages': {
+        'items': ['Orange Juice', 'Cola 12pk', 'Sparkling Water', 'Coffee Beans', 'Green Tea', 'Sports Drink', 'Lemonade', 'Kombucha'],
+        'elasticity_range': (-2.0, -1.0),
+        'base_price_range': (1.99, 8.99),
+        'base_quantity_range': (50, 150),
+    },
 }
 
 products = []
-sku = 1000
+upc = 100001
 
-for dept_name, dept_info in departments.items():
-    num_in_dept = int(NUM_PRODUCTS * (0.15 if dept_name in ['Produce', 'Grocery'] else 0.10))
-    
-    for _ in range(num_in_dept):
-        category = random.choice(dept_info['categories'])
-        price = round(random.uniform(*dept_info['price_range']), 2)
-        cost = round(price * random.uniform(0.60, 0.75), 2)
-        
+for cat_name, cat_info in categories.items():
+    for item_name in cat_info['items']:
+        true_elasticity = round(np.random.uniform(*cat_info['elasticity_range']), 3)
+        base_price = round(np.random.uniform(*cat_info['base_price_range']), 2)
+        base_cost = round(base_price * np.random.uniform(0.55, 0.70), 2)
+        base_quantity = int(np.random.uniform(*cat_info['base_quantity_range']))
+
         products.append({
-            'sku': sku,
-            'product_name': f"{fake.word().title()} {category.split()[-1]}",
-            'department': dept_name,
-            'category': category,
-            'price': price,
-            'cost': cost,
-            'is_perishable': dept_info['perishable']
+            'upc': upc,
+            'product_name': item_name,
+            'category': cat_name,
+            'subcategory': cat_name,
+            'true_elasticity': true_elasticity,
+            'base_price': base_price,
+            'base_cost': base_cost,
+            'base_quantity': base_quantity,
         })
-        sku += 1
+        upc += 1
 
 products_df = pd.DataFrame(products)
 products_df.to_csv(f'{OUTPUT_DIR}/products.csv', index=False)
-print(f"Generated {len(products_df)} products")
+print(f"Generated {len(products_df)} products across {len(categories)} categories")
 
 # === GENERATE STORES ===
 print("Generating stores...")
 
-store_formats = ['Large Format', 'Neighborhood Market', 'Urban Express']
-
+regions = ['Northeast', 'Southeast', 'Midwest', 'West']
 stores = []
 for store_id in range(1, NUM_STORES + 1):
-    store_format = random.choice(store_formats)
-    sq_ft = {
-        'Large Format': random.randint(45000, 65000),
-        'Neighborhood Market': random.randint(25000, 35000),
-        'Urban Express': random.randint(10000, 18000)
-    }[store_format]
-    
+    region = regions[(store_id - 1) % len(regions)]
+    volume_index = round(np.random.uniform(0.7, 1.3), 2)
+    sqft = int(np.random.uniform(25000, 55000))
+
     stores.append({
         'store_id': store_id,
-        'store_name': f"{fake.city()} {store_format}",
+        'store_name': f"{fake.city()} Market",
         'city': fake.city(),
         'state': fake.state_abbr(),
-        'store_format': store_format,
-        'square_footage': sq_ft,
-        'opened_date': fake.date_between(start_date='-5y', end_date='-1y')
+        'region': region,
+        'sqft': sqft,
+        'volume_index': volume_index,
     })
 
 stores_df = pd.DataFrame(stores)
 stores_df.to_csv(f'{OUTPUT_DIR}/stores.csv', index=False)
 print(f"Generated {len(stores_df)} stores")
 
+# === DEMAND FUNCTION ===
+
+def generate_demand(base_quantity, price, base_price, elasticity, noise_std=0.15):
+    """Generate quantity demanded using the log-log demand model.
+
+    Q = base_Q * (P / base_P) ^ elasticity * exp(noise)
+    """
+    Q = base_quantity * (price/base_price) ** (elasticity) * np.exp(np.random.normal(0,noise_std))
+    Q = max(1,int(Q))
+    return Q
+    
+
+
 # === GENERATE TRANSACTIONS ===
-print("Generating transactions (this may take a minute)...")
+print(f"Generating {NUM_DAYS} days of transactions...")
 
-start_date = datetime.now() - timedelta(days=NUM_DAYS)
+start_date = datetime(2023, 1, 1)
 transactions = []
-transaction_id = 1000000
-
-basket_weights = [10, 12, 14, 15, 14, 12, 10, 8, 6, 5, 4, 3, 3, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-hour_weights = [5, 6, 7, 6, 5, 8, 10, 12, 15, 18, 20, 18, 15, 12, 8]
 
 for day in range(NUM_DAYS):
     current_date = start_date + timedelta(days=day)
-    
+
+    # Weekend boost
     is_weekend = current_date.weekday() >= 5
-    base_transactions = 150 if is_weekend else 100
-    
-    month = current_date.month
-    seasonal_factor = 1.2 if month in [5, 6, 7, 11, 12] else 1.0
-    
-    daily_transactions = int(base_transactions * seasonal_factor)
-    
-    for store_id in stores_df['store_id']:
-        store_transactions = int(daily_transactions / NUM_STORES * random.uniform(0.8, 1.2))
-        
-        for _ in range(store_transactions):
-            hour = random.choices(range(7, 22), weights=hour_weights, k=1)[0]
-            minute = random.randint(0, 59)
-            transaction_time = current_date.replace(hour=hour, minute=minute)
-            
-            basket_size = random.choices(range(1, 31), weights=basket_weights, k=1)[0]
-            
-            basket_products = products_df.sample(n=min(basket_size, len(products_df)))
-            
-            for _, product in basket_products.iterrows():
-                quantity = random.choice([1, 1, 1, 2, 2, 3])
-                
-                price = product['price']
-                if random.random() < 0.15:
-                    price = round(price * 0.9, 2)
-                
-                transactions.append({
-                    'transaction_id': transaction_id,
-                    'store_id': store_id,
-                    'transaction_timestamp': transaction_time,
-                    'sku': product['sku'],
-                    'quantity': quantity,
-                    'price': price
-                })
-            
-            transaction_id += 1
-    
-    if day % 30 == 0:
-        print(f"Generated {day} days of transactions...")
+    weekend_factor = 1.15 if is_weekend else 1.0
+
+    for _, store in stores_df.iterrows():
+        store_volume = store['volume_index']
+
+        for _, product in products_df.iterrows():
+            # Price variation: weekly promotions (~20% of days get a discount)
+            promotion = random.random() < 0.20
+            if promotion:
+                discount = np.random.uniform(0.10, 0.25)
+                price = round(product['base_price'] * (1 - discount), 2)
+            else:
+                # Small random price fluctuations (±3%)
+                price = round(product['base_price'] * np.random.uniform(0.97, 1.03), 2)
+
+            # Generate quantity using the demand function
+            raw_quantity = generate_demand(
+                base_quantity=product['base_quantity'],
+                price=price,
+                base_price=product['base_price'],
+                elasticity=product['true_elasticity'],
+            )
+
+            # Scale by store volume and weekend effect
+            quantity = max(1, int(raw_quantity * store_volume * weekend_factor))
+
+            transactions.append({
+                'transaction_date': current_date.strftime('%Y-%m-%d'),
+                'store_id': store['store_id'],
+                'upc': product['upc'],
+                'units_sold': quantity,
+                'price': price,
+                'gross_sales': round(price * quantity, 2),
+                'cost': round(product['base_cost'] * quantity, 2),
+                'margin': round((price - product['base_cost']) * quantity, 2),
+                'promotion_flag': promotion,
+            })
+
+    if day % 60 == 0:
+        print(f"  Generated {day}/{NUM_DAYS} days...")
 
 transactions_df = pd.DataFrame(transactions)
 transactions_df.to_csv(f'{OUTPUT_DIR}/transactions.csv', index=False)
-print(f"Generated {len(transactions_df)} transaction line items")
+print(f"Generated {len(transactions_df):,} daily transaction records")
 
 print("\n=== Data Generation Complete ===")
-print(f"Products: {OUTPUT_DIR}/products.csv")
-print(f"Stores: {OUTPUT_DIR}/stores.csv")
-print(f"Transactions: {OUTPUT_DIR}/transactions.csv")
+print(f"Products: {OUTPUT_DIR}/products.csv  ({len(products_df)} products with true elasticities)")
+print(f"Stores:   {OUTPUT_DIR}/stores.csv    ({len(stores_df)} stores)")
+print(f"Transactions: {OUTPUT_DIR}/transactions.csv ({len(transactions_df):,} records)")

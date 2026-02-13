@@ -22,20 +22,20 @@ cleaned AS (
         promotion_flag,
         
         -- Date attributes
-        EXTRACT(YEAR FROM transaction_date) AS year,
-        EXTRACT(MONTH FROM transaction_date) AS month,
-        EXTRACT(QUARTER FROM transaction_date) AS quarter,
-        EXTRACT(DOW FROM transaction_date) AS day_of_week,
-        TO_CHAR(transaction_date, 'Day') AS day_name,
-        
+        EXTRACT(YEAR FROM transaction_date::date) AS year,
+        EXTRACT(MONTH FROM transaction_date::date) AS month,
+        EXTRACT(QUARTER FROM transaction_date::date) AS quarter,
+        EXTRACT(DOW FROM transaction_date::date) AS day_of_week,
+        TO_CHAR(transaction_date::date, 'Day') AS day_name,
+
         -- Calculated metrics
         ROUND((gross_sales / NULLIF(units_sold, 0))::numeric, 2) AS avg_unit_price,
         ROUND((margin / NULLIF(gross_sales, 0))::numeric, 4) AS margin_pct,
-        
+
         -- Flags
-        CASE 
-            WHEN EXTRACT(DOW FROM transaction_date) IN (0, 6) THEN TRUE 
-            ELSE FALSE 
+        CASE
+            WHEN EXTRACT(DOW FROM transaction_date::date) IN (0, 6) THEN TRUE
+            ELSE FALSE
         END AS is_weekend
 
     FROM source

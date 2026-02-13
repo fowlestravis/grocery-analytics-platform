@@ -28,19 +28,19 @@ try:
         print("✓ Schema ready")
     
     print("\nLoading transactions...")
-    df = pd.read_csv('data/synthetic_grocery/transactions.csv')
+    df = pd.read_csv('data/raw/transactions.csv')
     df.to_sql('synthetic_transactions', engine, schema='raw', 
               if_exists='replace', index=False, chunksize=10000)
     print(f"✓ {len(df):,} transactions loaded")
     
     print("\nLoading products...")
-    df = pd.read_csv('data/synthetic_grocery/products.csv')
+    df = pd.read_csv('data/raw/products.csv')
     df.to_sql('synthetic_products', engine, schema='raw', 
               if_exists='replace', index=False)
     print(f"✓ {len(df)} products loaded")
     
     print("\nLoading stores...")
-    df = pd.read_csv('data/synthetic_grocery/stores.csv')
+    df = pd.read_csv('data/raw/stores.csv')
     df.to_sql('synthetic_stores', engine, schema='raw', 
               if_exists='replace', index=False)
     print(f"✓ {len(df)} stores loaded")

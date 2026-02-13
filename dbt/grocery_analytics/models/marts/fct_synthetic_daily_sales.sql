@@ -22,8 +22,8 @@ SELECT
     t.transaction_date,
     t.store_id,
     t.upc,
-    
-    -- Dimension attributes (for filtering without joins)
+
+    -- Dimension attributes
     s.region,
     s.city,
     s.state,
@@ -31,12 +31,9 @@ SELECT
     s.volume_tier,
     p.category,
     p.subcategory,
-    p.family,
-    p.organic_type,
     p.price_tier,
     p.elasticity_category,
-    p.seasonality,
-    
+
     -- Date attributes
     t.year,
     t.month,
@@ -44,7 +41,7 @@ SELECT
     t.day_of_week,
     t.day_name,
     t.is_weekend,
-    
+
     -- Metrics
     t.units_sold,
     t.gross_sales,
@@ -53,12 +50,12 @@ SELECT
     t.price,
     t.promotion_flag,
     t.margin_pct,
-    
+
     -- For elasticity validation
     p.true_elasticity,
     p.base_price,
-ROUND((t.price / NULLIF(p.base_price, 0))::numeric, 4) AS price_index,
-ROUND(((t.price - p.base_price) / NULLIF(p.base_price, 0))::numeric, 4) AS price_variance_pct
+    ROUND((t.price / NULLIF(p.base_price, 0))::numeric, 4) AS price_index,
+    ROUND(((t.price - p.base_price) / NULLIF(p.base_price, 0))::numeric, 4) AS price_variance_pct
 
 FROM transactions t
 LEFT JOIN products p ON t.upc = p.upc

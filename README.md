@@ -1,23 +1,25 @@
 # Grocery Analytics Platform
 
-A modern data stack for grocery demand analysis, featuring automated ETL pipelines, dimensional modeling, and **validated price elasticity estimation**. Built with Airflow, dbt, and PostgreSQL.
+A modern data stack for grocery demand analysis, featuring dimensional modeling and **validated price elasticity estimation**. Built with dbt and PostgreSQL.
 
-**Key Achievement:** Successfully recovered known price elasticities from synthetic data with **2.4-2.5% average error**, validating the methodology for application to real vendor data.
+**Key Achievement:** Successfully recovered known price elasticities from synthetic data with **~2.4% average error**, validating the log-log regression methodology for application to real vendor data.
 
 ## Validation Results
 
 The platform includes a complete elasticity validation pipeline that proves the methodology works before applying it to real data. Using synthetic grocery transactions with known ground-truth elasticities, the log-log regression approach recovers true values with high accuracy.
 
-| Category   | Products | Avg True Elasticity | Avg Estimated | Avg Error | Error Range |
-|------------|----------|---------------------|---------------|-----------|-------------|
-| Fruit      | 20       | -1.435              | -1.441        | 2.4%      | 0.3% - 9.1% |
-| Vegetables | 13       | -1.038              | -1.042        | 2.5%      | 0.5% - 4.4% |
+| Category   | Products | True Elasticity | Estimated | Avg Error |
+|------------|----------|-----------------|-----------|-----------|
+| Dairy      | 8        | -0.754          | -0.765    | 3.1%      |
+| Produce    | 8        | -1.262          | -1.270    | 2.5%      |
+| Snacks     | 8        | -2.006          | -2.031    | 1.6%      |
+| Beverages  | 8        | -1.442          | -1.458    | 2.4%      |
 
 ### Product-Level Validation
 
 ![Product-level elasticity validation showing tight clustering along the perfect estimation diagonal](validation_results/product_validation.png)
 
-Product-level estimates show strong correlation with ground truth values across both categories. Points cluster tightly along the diagonal, confirming unbiased estimation across the full elasticity range (-0.4 to -2.5).
+Product-level estimates show strong correlation with ground truth values across all four categories. Points cluster tightly along the diagonal, confirming unbiased estimation across the full elasticity range.
 
 ### Error Distribution
 
@@ -27,101 +29,123 @@ Errors are centered near zero with most products under 4% error, indicating the 
 
 ### Methodology
 
-**Estimation approach:** Log-log regression per product
+**Estimation approach:** Log-log regression per product (Method 2: product-level time series)
 
 ```
 ln(Q) = β₀ + β₁ × ln(P) + ε
 ```
 
-where β₁ is the price elasticity estimate. Product-level time series estimation avoids the Simpson's paradox effect that confounds category-level aggregation.
+where β₁ is the price elasticity estimate. Product-level time series estimation avoids the Simpson's paradox effect that confounds category-level aggregation (Method 1, which fails with 100%+ error on this data).
 
-**Data:** 434,016 synthetic transactions across 33 products, 12 stores, and 3 years (2022-2024).
+**Synthetic data generation:** Each product has a known `true_elasticity`. Daily quantities are generated using:
+
+```
+Q = base_Q × (P / base_P) ^ elasticity × exp(noise)
+```
+
+This embeds the economic relationship into the data so the analysis can attempt to recover it.
+
+**Data:** 280,320 synthetic daily records across 32 products, 12 stores, and 2 years (2023-2024).
 
 ## Architecture
 
 ### Data Flow
 
 ```
-Raw CSVs → Python load scripts → Postgres (raw schema)
-                                       ↓
-                              dbt staging (views)
-                                       ↓
-                           dbt dimensions/marts (tables)
-                                       ↓
-                  analysis/demand_analysis.py → validation_results/
+generate_data.py → CSVs (data/raw/)
+                        ↓
+          load_synthetic_data.py → Postgres (raw schema)
+                                        ↓
+                               dbt staging (views)
+                                        ↓
+                            dbt dimensions/marts (tables)
+                                        ↓
+                   analysis/demand_analysis.py → validation_results/
 ```
 
 ### dbt Model Layers
 
 | Layer | Schema | Materialization | Prefix | Example |
 |-------|--------|-----------------|--------|---------|
-| Staging | `staging` | view | `stg_` | `stg_transactions` |
-| Dimensions | `analytics` | table | `dim_` | `dim_product` |
+| Staging | `staging` | view | `stg_` | `stg_synthetic_transactions` |
+| Dimensions | `analytics` | table | `dim_` | `dim_synthetic_products` |
 | Facts/Marts | `analytics` | table | `fct_`/`mart_` | `fct_synthetic_daily_sales` |
 
-Two parallel model tracks:
-- **Generated/Kaggle data:** `stg_transactions` → `dim_product` → `fact_sales` → `mart_daily_store_performance`
-- **Synthetic grocery data:** `stg_synthetic_transactions` → `dim_synthetic_products` → `fct_synthetic_daily_sales` → `mart_elasticity_validation`
+**Note:** dbt prepends the target schema to custom schemas. With target `analytics` and custom schema `analytics`, the actual Postgres schema is `analytics_analytics`.
 
-### Airflow Pipeline
+Two model tracks exist:
+- **Synthetic grocery data:** `stg_synthetic_transactions` → `dim_synthetic_products` → `fct_synthetic_daily_sales` → `mart_elasticity_validation` (sources from `raw` schema)
+- **Generated/Kaggle data:** `stg_transactions` → `dim_product` → `fact_sales` → `mart_daily_store_performance` (sources from `public` schema, requires Kaggle dataset)
 
-Single DAG `grocery_analytics_pipeline` runs daily at 2 AM UTC:
+### Airflow Pipeline (Optional)
 
-```
-fetch_kaggle_inventory → load_kaggle_to_postgres → generate_transaction_data → load_data_to_postgres
-    → dbt_run_staging → dbt_run_dimensions → dbt_run_marts → dbt_test
-```
+An Airflow DAG exists for the Kaggle data pipeline but is not required for the core synthetic elasticity workflow.
 
 ## Getting Started
 
 ### Prerequisites
 
 - Docker & Docker Compose
-- Python 3.12+ with virtualenv
+- Python 3.12+
 - PostgreSQL client (optional, for direct queries)
 
-### Infrastructure
+### Setup
 
 ```bash
 # Start Postgres warehouse
 docker-compose up -d
 
-# Start Airflow stack (webserver + scheduler + metadata postgres)
-docker-compose -f docker-compose-airflow.yml up -d
+# Python environment
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+pip install scipy numpy matplotlib seaborn sqlalchemy setuptools
 
-# Airflow UI: http://localhost:8080 (airflow/airflow)
-# Data Postgres: localhost:5432 (analytics_user/analytics_pass/grocery_analytics)
+# Create config/.env
+mkdir -p config
+cat > config/.env << 'EOF'
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=grocery_analytics
+DB_USER=analytics_user
+DB_PASSWORD=analytics_pass
+EOF
+
+# Configure dbt profile (~/.dbt/profiles.yml)
+mkdir -p ~/.dbt
+cat > ~/.dbt/profiles.yml << 'EOF'
+grocery_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      port: 5432
+      user: analytics_user
+      pass: analytics_pass
+      dbname: grocery_analytics
+      schema: analytics
+      threads: 4
+EOF
 ```
 
-### Data Loading
+### Run the Pipeline
 
 ```bash
-# End-to-end synthetic data setup
-./setup_synthetic_data.sh
+source venv/bin/activate
 
-# Or run individual steps:
-python3 scripts/generate_data.py           # Generate synthetic CSVs
-python3 scripts/load_data_to_postgres.py   # Load raw CSVs to Postgres
-python3 scripts/load_synthetic_data.py     # Load synthetic grocery data
-python3 scripts/fetch_kaggle_inventory.py  # Download Kaggle dataset
-python3 scripts/load_kaggle_to_postgres.py # Load Kaggle data
-```
+# Generate synthetic data with known elasticities
+python3 scripts/generate_data.py
 
-### dbt
+# Load into Postgres
+python3 scripts/load_synthetic_data.py
 
-All dbt commands run from `dbt/grocery_analytics/`:
+# Run dbt models
+cd dbt/grocery_analytics
+dbt run --select tag:synthetic tag:elasticity
+dbt test --select tag:synthetic
 
-```bash
-dbt run                            # Run all models
-dbt run --select staging           # Run one layer
-dbt run --select tag:synthetic     # Run by tag
-dbt test                           # Run data quality tests
-```
-
-### Demand Analysis
-
-```bash
-# Run elasticity validation against synthetic data
+# Run elasticity validation
+cd ../..
 python3 analysis/demand_analysis.py
 
 # Results output to validation_results/
@@ -131,47 +155,30 @@ python3 analysis/demand_analysis.py
 
 ```
 grocery-analytics-platform/
-├── airflow/
-│   ├── dags/
-│   │   └── grocery_pipeline.py        # Main DAG definition
-│   ├── config/
-│   ├── logs/
-│   ├── models/
-│   └── plugins/
-├── config/
-│   └── .env                           # Database connection settings
-├── data/
-│   ├── kaggle/                        # Kaggle inventory dataset
-│   ├── raw/                           # Generated transaction data
-│   └── synthetic_grocery/             # Synthetic data with known elasticities
-├── dbt/grocery_analytics/
-│   └── models/
-│       ├── staging/                   # stg_ views (cleaning layer)
-│       ├── dimensions/                # dim_ and fact_ tables
-│       └── marts/                     # mart_ analysis tables
 ├── analysis/
 │   └── demand_analysis.py             # Elasticity estimation & validation
-├── docs/
-│   └── archive/
+├── config/
+│   └── .env                           # Database credentials (gitignored)
+├── data/
+│   └── raw/                           # Generated CSVs (gitignored)
+├── dbt/grocery_analytics/
+│   └── models/
+│       ├── staging/                   # stg_ views (cleaning/casting)
+│       ├── dimensions/                # dim_ tables (products, stores)
+│       └── marts/                     # fct_ and mart_ tables (analysis-ready)
 ├── scripts/
-│   ├── fetch_kaggle_inventory.py
-│   ├── generate_data.py
-│   ├── load_data_to_postgres.py
-│   ├── load_kaggle_to_postgres.py
-│   └── load_synthetic_data.py
-├── validation_results/                # Elasticity validation output
-│   ├── VALIDATION_REPORT.md
-│   ├── category_validation.png
-│   ├── product_validation.png
-│   ├── error_distribution.png
-│   ├── category_results.csv
-│   └── product_results.csv
+│   ├── generate_data.py               # Synthetic data with demand function
+│   ├── load_synthetic_data.py         # Load to Postgres raw schema
+│   ├── load_data_to_postgres.py       # Load generated CSVs to public schema
+│   ├── fetch_kaggle_inventory.py      # Kaggle dataset download
+│   └── load_kaggle_to_postgres.py     # Kaggle data loader
+├── validation_results/                # Analysis output
 ├── docker-compose.yml                 # Postgres warehouse
-├── docker-compose-airflow.yml         # Airflow stack
-├── setup_synthetic_data.sh            # End-to-end data setup
+├── docker-compose-airflow.yml         # Airflow stack (optional)
+├── setup_synthetic_data.sh            # Legacy end-to-end setup script
 └── requirements.txt
 ```
 
 ## Key Dependencies
 
-`dbt-postgres`, `pandas`, `numpy`, `scipy`, `matplotlib`, `seaborn`, `sqlalchemy`, `psycopg2-binary`, `faker`, `python-dotenv`
+`dbt-postgres`, `pandas`, `numpy`, `scipy`, `matplotlib`, `seaborn`, `sqlalchemy`, `psycopg2-binary`, `faker`, `python-dotenv`, `setuptools`
