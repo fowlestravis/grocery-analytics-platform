@@ -12,6 +12,10 @@ x-airflow-common:
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth'
     DBT_SEND_ANONYMOUS_USAGE_STATS: 'false'
+    _PIP_ADDITIONAL_REQUIREMENTS: 'dbt-postgres==1.7.4 faker==20.1.0 pandas==2.1.4 psycopg2-binary==2.9.9 python-dotenv==1.0.0 scipy numpy matplotlib seaborn sqlalchemy setuptools'
+    GROCERY_DB_HOST: host.docker.internal
+    MPLBACKEND: Agg
+    DBT_PROFILES_DIR: /opt/airflow/dbt/profiles
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/logs:/opt/airflow/logs
@@ -20,6 +24,8 @@ x-airflow-common:
     - ./dbt:/opt/airflow/dbt
     - ./data:/opt/airflow/data
     - ./config:/opt/airflow/config
+    - ./analysis:/opt/airflow/analysis
+    - ./validation_results:/opt/airflow/validation_results
     - ./requirements.txt:/requirements.txt
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:

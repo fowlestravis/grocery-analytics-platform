@@ -9,6 +9,7 @@ This validates the demand modeling methodology by showing we can recover
 known elasticities from synthetic data.
 """
 
+import os
 import pandas as pd
 import numpy as np
 from scipy import stats
@@ -18,7 +19,8 @@ import seaborn as sns
 from datetime import datetime
 
 # Database connection
-DATABASE_URL = "postgresql://analytics_user:analytics_pass@localhost:5432/grocery_analytics"
+_db_host = os.environ.get("GROCERY_DB_HOST", "localhost")
+DATABASE_URL = f"postgresql://analytics_user:analytics_pass@{_db_host}:5432/grocery_analytics"
 
 def load_data(engine):
     """Load aggregated data from mart for elasticity estimation"""

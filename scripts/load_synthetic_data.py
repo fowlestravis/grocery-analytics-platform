@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
+import os
 import pandas as pd
 from sqlalchemy import create_engine, text
 import sys
 
-DB_HOST = "localhost"
+DB_HOST = os.environ.get("GROCERY_DB_HOST", "localhost")
 DB_PORT = "5432"
 DB_NAME = "grocery_analytics"
 DB_USER = "analytics_user"
@@ -22,11 +23,16 @@ try:
         result = conn.execute(text("SELECT 1"))
         print("✓ Connected to database")
     
-    with engine.connect() as conn:
+    with engine.begin() as conn:
         conn.execute(text("CREATE SCHEMA IF NOT EXISTS raw"))
-        conn.commit()
-        print("✓ Schema ready")
-    
+        # Drop dependent dbt views/tables so to_sql can replace raw tables
+        conn.execute(text("DROP TABLE IF EXISTS analytics_analytics.mart_elasticity_validation CASCADE"))
+        conn.execute(text("DROP TABLE IF EXISTS analytics_analytics.fct_synthetic_daily_sales CASCADE"))
+        conn.execute(text("DROP TABLE IF EXISTS analytics_analytics.dim_synthetic_products CASCADE"))
+        conn.execute(text("DROP TABLE IF EXISTS analytics_analytics.dim_synthetic_stores CASCADE"))
+        conn.execute(text("DROP VIEW IF EXISTS analytics_staging.stg_synthetic_transactions CASCADE"))
+        print("✓ Schema ready (cleared dependent objects)")
+
     print("\nLoading transactions...")
     df = pd.read_csv('data/raw/transactions.csv')
     df.to_sql('synthetic_transactions', engine, schema='raw', 

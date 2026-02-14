@@ -9,7 +9,7 @@ load_dotenv('config/.env')
 
 # Database connection parameters
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST'),
+    'host': os.getenv('GROCERY_DB_HOST', os.getenv('DB_HOST', 'localhost')),
     'port': os.getenv('DB_PORT'),
     'database': os.getenv('DB_NAME'),
     'user': os.getenv('DB_USER'),
