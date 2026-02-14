@@ -1,8 +1,10 @@
 # Grocery Analytics Platform
 
-A modern data stack for grocery demand analysis, featuring dimensional modeling and **validated price elasticity estimation**. Built with dbt and PostgreSQL.
+A modern data stack for grocery demand analysis, featuring dimensional modeling, **validated price elasticity estimation**, and automated daily orchestration. Built with Airflow, dbt, and PostgreSQL, running 24/7 on a Mac Mini.
 
 **Key Achievement:** Successfully recovered known price elasticities from synthetic data with **~2.4% average error**, validating the log-log regression methodology for application to real vendor data.
+
+**What it does today:** An Airflow DAG regenerates synthetic data, loads it into Postgres, runs dbt transformations, and validates the elasticity estimation — every day at 6 AM UTC, fully automated.
 
 ## Validation Results
 
@@ -52,16 +54,23 @@ This embeds the economic relationship into the data so the analysis can attempt 
 ### Data Flow
 
 ```
-generate_data.py → CSVs (data/raw/)
-                        ↓
-          load_synthetic_data.py → Postgres (raw schema)
-                                        ↓
-                               dbt staging (views)
-                                        ↓
-                            dbt dimensions/marts (tables)
-                                        ↓
-                   analysis/demand_analysis.py → validation_results/
+     Airflow DAG (daily_grocery_refresh, 6 AM UTC)
+     ┌──────────────────────────────────────────────┐
+     │                                              │
+     │  generate_data.py → CSVs (data/raw/)         │
+     │                          ↓                   │
+     │    load_synthetic_data.py → Postgres (raw)   │
+     │                                ↓             │
+     │                     dbt staging (views)       │
+     │                                ↓             │
+     │                  dbt dimensions/marts         │
+     │                                ↓             │
+     │         demand_analysis.py → validation_results/
+     │                                              │
+     └──────────────────────────────────────────────┘
 ```
+
+Each step is a BashOperator task. If any task fails, the error is logged to `airflow/logs/failure_alerts.log`.
 
 ### dbt Model Layers
 
@@ -77,9 +86,20 @@ Two model tracks exist:
 - **Synthetic grocery data:** `stg_synthetic_transactions` → `dim_synthetic_products` → `fct_synthetic_daily_sales` → `mart_elasticity_validation` (sources from `raw` schema)
 - **Generated/Kaggle data:** `stg_transactions` → `dim_product` → `fact_sales` → `mart_daily_store_performance` (sources from `public` schema, requires Kaggle dataset)
 
-### Airflow Pipeline (Optional)
+### Airflow Pipeline
 
-An Airflow DAG exists for the Kaggle data pipeline but is not required for the core synthetic elasticity workflow.
+DAG `daily_grocery_refresh` runs the full synthetic pipeline daily at 6 AM UTC:
+
+| Task | Command | Purpose |
+|------|---------|---------|
+| `generate_synthetic_data` | `python scripts/generate_data.py` | Regenerate CSVs with known elasticities |
+| `load_data_to_postgres` | `python scripts/load_synthetic_data.py` | Load CSVs into Postgres `raw` schema |
+| `dbt_run_synthetic` | `dbt run --select tag:synthetic tag:elasticity` | Transform into dimensional models |
+| `run_demand_analysis` | `python analysis/demand_analysis.py` | Validate elasticity estimation |
+
+Tasks run sequentially. Failure callback logs errors with timestamps. Airflow containers reach the data warehouse via `host.docker.internal` (Docker Desktop on macOS).
+
+A legacy Kaggle DAG (`grocery_analytics_pipeline`) also exists but is separate from the core validation workflow.
 
 ## Getting Started
 
@@ -98,7 +118,6 @@ docker-compose up -d
 # Python environment
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-pip install scipy numpy matplotlib seaborn sqlalchemy setuptools
 
 # Create config/.env
 mkdir -p config
@@ -128,6 +147,20 @@ grocery_analytics:
 EOF
 ```
 
+### Start Airflow (Optional)
+
+```bash
+# Start Airflow stack (webserver, scheduler, metadata Postgres)
+docker-compose -f docker-compose-airflow.yml up -d
+
+# Wait ~90 seconds for pip dependency install, then open:
+# http://localhost:8080 (login: airflow / airflow)
+
+# Unpause the daily_grocery_refresh DAG and trigger a manual run
+```
+
+Airflow containers install all Python dependencies at startup via `_PIP_ADDITIONAL_REQUIREMENTS`. The `GROCERY_DB_HOST` env var is set to `host.docker.internal` so scripts can reach the data warehouse Postgres on the host.
+
 ### Run the Pipeline
 
 ```bash
@@ -155,26 +188,32 @@ python3 analysis/demand_analysis.py
 
 ```
 grocery-analytics-platform/
+├── airflow/
+│   ├── dags/
+│   │   └── daily_grocery_refresh.py   # Daily synthetic pipeline DAG
+│   └── logs/                          # Airflow task logs + failure alerts
 ├── analysis/
 │   └── demand_analysis.py             # Elasticity estimation & validation
 ├── config/
 │   └── .env                           # Database credentials (gitignored)
 ├── data/
 │   └── raw/                           # Generated CSVs (gitignored)
-├── dbt/grocery_analytics/
-│   └── models/
-│       ├── staging/                   # stg_ views (cleaning/casting)
-│       ├── dimensions/                # dim_ tables (products, stores)
-│       └── marts/                     # fct_ and mart_ tables (analysis-ready)
+├── dbt/
+│   ├── grocery_analytics/models/
+│   │   ├── staging/                   # stg_ views (cleaning/casting)
+│   │   ├── dimensions/                # dim_ tables (products, stores)
+│   │   └── marts/                     # fct_ and mart_ tables (analysis-ready)
+│   └── profiles/
+│       └── profiles.yml               # Container-specific dbt profile
 ├── scripts/
 │   ├── generate_data.py               # Synthetic data with demand function
 │   ├── load_synthetic_data.py         # Load to Postgres raw schema
 │   ├── load_data_to_postgres.py       # Load generated CSVs to public schema
 │   ├── fetch_kaggle_inventory.py      # Kaggle dataset download
 │   └── load_kaggle_to_postgres.py     # Kaggle data loader
-├── validation_results/                # Analysis output
+├── validation_results/                # Analysis output (plots, CSVs)
 ├── docker-compose.yml                 # Postgres warehouse
-├── docker-compose-airflow.yml         # Airflow stack (optional)
+├── docker-compose-airflow.yml         # Airflow stack
 ├── setup_synthetic_data.sh            # Legacy end-to-end setup script
 └── requirements.txt
 ```

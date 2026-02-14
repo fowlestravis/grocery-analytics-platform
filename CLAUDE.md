@@ -41,7 +41,7 @@ dbt test                           # Run data quality tests
 dbt debug                          # Test database connection
 ```
 
-dbt profile (`grocery_analytics`) must be configured in `~/.dbt/profiles.yml` — no profiles.yml is checked into the repo.
+dbt profile (`grocery_analytics`) must be configured in `~/.dbt/profiles.yml` for local dev. A container-specific profile exists at `dbt/profiles/profiles.yml` (uses `env_var('GROCERY_DB_HOST')` for the host).
 
 ## Data Loading Scripts
 
@@ -84,12 +84,21 @@ Raw CSVs → Python load scripts → Postgres `raw` schema → dbt staging (view
 
 dbt prepends the target schema to custom schemas. With target schema `analytics` and custom schema `analytics`, the actual Postgres schema becomes `analytics_analytics`. Queries in Python scripts must use this combined name (e.g., `analytics_analytics.mart_elasticity_validation`).
 
-### Airflow Pipeline
+### Airflow Pipelines
 
-Single DAG `grocery_analytics_pipeline` runs daily at 2 AM UTC. Task chain:
+**Active DAG — `daily_grocery_refresh`** (6 AM UTC daily):
+`generate_synthetic_data → load_data_to_postgres → dbt_run_synthetic → run_demand_analysis`
+
+Runs the full synthetic elasticity validation pipeline. Failure callback logs to `/opt/airflow/logs/failure_alerts.log`.
+
+**Legacy DAG — `grocery_analytics_pipeline`** (2 AM UTC daily):
 `fetch_kaggle_inventory → load_kaggle_to_postgres → generate_transaction_data → load_data_to_postgres → dbt_run_staging → dbt_run_dimensions → dbt_run_marts → dbt_test`
 
-All Airflow tasks use `BashOperator`. Inside the container, the project root is `/opt/airflow`. The Airflow compose file mounts `scripts/`, `dbt/`, `data/`, and `config/` into the container.
+All Airflow tasks use `BashOperator`. Inside the container, the project root is `/opt/airflow`. The Airflow compose file mounts `scripts/`, `dbt/`, `data/`, `config/`, `analysis/`, and `validation_results/` into the container.
+
+### Container Networking
+
+Airflow containers reach the data warehouse Postgres via `host.docker.internal` (Docker Desktop feature). The `GROCERY_DB_HOST` env var is set in `docker-compose-airflow.yml` and read by all Python scripts with a `localhost` fallback. The two compose files (`docker-compose.yml` for the warehouse, `docker-compose-airflow.yml` for Airflow) run on separate Docker networks.
 
 ## Conventions
 
@@ -97,7 +106,9 @@ All Airflow tasks use `BashOperator`. Inside the container, the project root is 
 - **SQL models**: `stg_[entity]`, `dim_[entity]`, `fct_[entity]`, `mart_[analysis]`
 - **Database schemas**: `raw` (ingested), `staging` (cleaned views), `analytics` (production tables)
 - **SQLAlchemy**: Use `text()` wrapper for raw SQL (SQLAlchemy 2.0 compatibility)
-- **DB credentials**: Currently hardcoded in Python scripts (not loaded from env vars despite `config/.env` being in `.gitignore`)
+- **DB host**: Scripts use `os.environ.get("GROCERY_DB_HOST", "localhost")` — containers set this to `host.docker.internal`, local dev falls back to `localhost`
+- **DB credentials**: Hardcoded in Python scripts (not loaded from env vars despite `config/.env` being in `.gitignore`)
+- **SQLAlchemy transactions**: Use `engine.begin()` context manager (compatible with both SQLAlchemy 1.4 in Airflow and 2.0 locally)
 
 ## Key Dependencies
 
