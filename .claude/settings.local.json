@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(log show:*)",
+      "Bash(sysctl:*)"
     ]
   },
   "outputStyle": "Learning"
