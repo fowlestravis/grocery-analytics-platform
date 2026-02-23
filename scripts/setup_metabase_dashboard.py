@@ -100,14 +100,12 @@ def main():
     # -- Card 5: Elasticity Scatter Plot (true vs estimated) --
     print("Creating card: Elasticity Scatter Plot...")
     c_elasticity = create_native_card(session, "True vs Estimated Elasticity", db_id,
-        # TODO(human): Write the SQL query for the elasticity scatter plot
-        """SELECT PRODUCT_NAME,
-		CATEGORY,
-		TRUE_ELASTICITY,
-		ESTIMATED_ELASTICITY
-		FROM analytics_analytics.fct_synthetic_daily_sales
-		JOIN analytics_analytics.dim_synthetic_products using (upc)
-	""",
+        """SELECT p.product_name, p.category, p.true_elasticity,
+                  regr_slope(ln(s.units_sold::float), ln(s.price::float)) AS estimated_elasticity
+           FROM analytics_analytics.fct_synthetic_daily_sales s
+           JOIN analytics_analytics.dim_synthetic_products p ON s.upc = p.upc
+           WHERE s.price > 0 AND s.units_sold > 0
+           GROUP BY p.upc, p.product_name, p.category, p.true_elasticity""",
         display="scatter",
         viz_settings={
             "graph.dimensions": ["TRUE_ELASTICITY"],
@@ -178,9 +176,9 @@ def main():
     ]
 
     ordered_cards = []
-    for card in cards:
+    for i, card in enumerate(cards, start=1):
         ordered_cards.append({
-            "id": -1,
+            "id": -i,
             "card_id": card["id"],
             "col": card["col"],
             "row": card["row"],
