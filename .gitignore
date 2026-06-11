@@ -32,3 +32,6 @@ airflow/logs/
 # Outputs (generated files)
 validation_results/*.png
 validation_results/*.csv
+exports/
+CLAUDE.md
+.claude/
