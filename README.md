@@ -2,7 +2,7 @@
 
 A grocery pricing analytics platform that estimates price elasticity of demand using log-log regression, validates the methodology against known ground truth, and surfaces actionable pricing recommendations through an interactive demand curve tool. Built on a modern data engineering stack running 24/7 on a Mac Mini.
 
-📊 **[View the Tableau Public Dashboard](INSERT_LINK_HERE)**
+📊 **[View the Tableau Public Dashboard]((https://public.tableau.com/app/profile/tvfowles/viz/Elasticityv1/Dashboard1))**
 
 -----
 
