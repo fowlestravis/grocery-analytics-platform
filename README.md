@@ -1,223 +1,80 @@
 # Grocery Analytics Platform
 
-A modern data stack for grocery demand analysis, featuring dimensional modeling, **validated price elasticity estimation**, and automated daily orchestration. Built with Airflow, dbt, and PostgreSQL, running 24/7 on a Mac Mini.
+A grocery pricing analytics platform that estimates price elasticity of demand using log-log regression, validates the methodology against known ground truth, and surfaces actionable pricing recommendations through an interactive demand curve tool. Built on a modern data engineering stack running 24/7 on a Mac Mini.
 
-**Key Achievement:** Successfully recovered known price elasticities from synthetic data with **~2.4% average error**, validating the log-log regression methodology for application to real vendor data.
+📊 **[View the Tableau Public Dashboard](INSERT_LINK_HERE)**
 
-**What it does today:** An Airflow DAG regenerates synthetic data, loads it into Postgres, runs dbt transformations, and validates the elasticity estimation — every day at 6 AM UTC, fully automated.
+-----
 
-## Validation Results
+## Part 1 — The Pricing Tool
 
-The platform includes a complete elasticity validation pipeline that proves the methodology works before applying it to real data. Using synthetic grocery transactions with known ground-truth elasticities, the log-log regression approach recovers true values with high accuracy.
+### Background
 
-| Category   | Products | True Elasticity | Estimated | Avg Error |
-|------------|----------|-----------------|-----------|-----------|
-| Dairy      | 8        | -0.754          | -0.765    | 3.1%      |
-| Produce    | 8        | -1.262          | -1.270    | 2.5%      |
-| Snacks     | 8        | -2.006          | -2.031    | 1.6%      |
-| Beverages  | 8        | -1.442          | -1.458    | 2.4%      |
+This project reconstructs a pricing decision support tool for assortment and promotional decisions used by category managers. It was inspired by and built using methodology I was exposed to in a production pricing environment at Whole Foods Market. This implementation reproduces the core analytical approach on a modern open-source stack using synthetic grocery data, with outputs published via Tableau Public.
 
-### Product-Level Validation
+### The Business Problem
 
-![Product-level elasticity validation showing tight clustering along the perfect estimation diagonal](validation_results/product_validation.png)
+Retailers — and grocers especially — need to understand how changes in an item’s price will affect its demand. This is a fundamental concept in microeconomics. To use an example from this dataset: a 10% price increase on milk will not cause many customers to go without, because milk has inelastic demand. However, a 10% increase on Potato Chips could cut sales significantly due to their elastic demand — customers will either trade down or go without entirely.
 
-Product-level estimates show strong correlation with ground truth values across all four categories. Points cluster tightly along the diagonal, confirming unbiased estimation across the full elasticity range.
+Quantifying these changes — the price elasticity of demand — is a keystone of pricing analysis, promotion planning, and category management. This project is an MVP of a solution to a common problem in retail analytics: gaps in or unavailability of clean transactional data. By generating synthetic grocery transactions with known elasticities baked in and then verifying them using econometric methodology, we can demonstrate that if the approach works on synthetic data, it can be trusted on real transactional data as well.
 
-### Error Distribution
+**Key result:** The pipeline validates log-log regression methodology for production use with a **2.4% MAPE** across 32 products.
 
-![Distribution of estimation errors centered near zero](validation_results/error_distribution.png)
+### Demand Curve Methodology
 
-Errors are centered near zero with most products under 4% error, indicating the methodology produces reliable, unbiased estimates.
-
-### Methodology
-
-**Estimation approach:** Log-log regression per product (Method 2: product-level time series)
+The demand curve is constructed from log-log regression coefficients using the exponential form of the constant-elasticity model:
 
 ```
-ln(Q) = β₀ + β₁ × ln(P) + ε
+Q(P) = b_intercept_exp × e^(b_ARP × P)
 ```
 
-where β₁ is the price elasticity estimate. Product-level time series estimation avoids the Simpson's paradox effect that confounds category-level aggregation (Method 1, which fails with 100%+ error on this data).
+At any given price point the model predicts three curves:
 
-**Synthetic data generation:** Each product has a known `true_elasticity`. Daily quantities are generated using:
+- **Units** — volume response to price change
+- **Sales** — revenue (units × price)
+- **Contribution Margin** — direct product margin: `Contribution Margin = Sales − (Units × Cost)`
 
-```
-Q = base_Q × (P / base_P) ^ elasticity × exp(noise)
-```
+> **A note on margin terminology:** In the Whole Foods production environment this metric was referred to as GIG — Gross Income from Groceries. GIG captures per-unit profitability using direct product cost only, before allocating variable costs such as labor, packaging, and shrink. It is not a true contribution margin in the academic sense, but it is the preferred KPI for category managers and merchandising leadership, as finance typically sets margin targets at the category level against this metric. The terms are used interchangeably in this project.
 
-This embeds the economic relationship into the data so the analysis can attempt to recover it.
+### The Balance Point
 
-**Data:** 280,320 synthetic daily records across 32 products, 12 stores, and 2 years (2023-2024).
+The **balance point** is the price within the observed range that maximizes contribution margin. It is identified by evaluating the demand curve across the full observed price range in $0.01 increments and finding the peak of the margin curve.
 
-## Architecture
-
-### Data Flow
+The **margin opportunity** quantifies the margin being left on the table at the current retail price:
 
 ```
-     Airflow DAG (daily_grocery_refresh, 6 AM UTC)
-     ┌──────────────────────────────────────────────┐
-     │                                              │
-     │  generate_data.py → CSVs (data/raw/)         │
-     │                          ↓                   │
-     │    load_synthetic_data.py → Postgres (raw)   │
-     │                                ↓             │
-     │                     dbt staging (views)       │
-     │                                ↓             │
-     │                  dbt dimensions/marts         │
-     │                                ↓             │
-     │         demand_analysis.py → validation_results/
-     │                                              │
-     └──────────────────────────────────────────────┘
+Margin Opportunity = Margin(balance_point_price) − Margin(current_price)
 ```
 
-Each step is a BashOperator task. If any task fails, the error is logged to `airflow/logs/failure_alerts.log`.
+Expressed in dollars per store per day, this metric is immediately actionable. A margin opportunity of $100/store/day across 300 stores represents $30,000/day in unrealized contribution margin.
 
-### dbt Model Layers
+### The Dashboard
 
-| Layer | Schema | Materialization | Prefix | Example |
-|-------|--------|-----------------|--------|---------|
-| Staging | `staging` | view | `stg_` | `stg_synthetic_transactions` |
-| Dimensions | `analytics` | table | `dim_` | `dim_synthetic_products` |
-| Facts/Marts | `analytics` | table | `fct_`/`mart_` | `fct_synthetic_daily_sales` |
+The Tableau Public dashboard provides an interactive product-level pricing tool across 32 synthetic grocery products spanning four categories — Dairy, Produce, Snacks, and Beverages.
 
-**Note:** dbt prepends the target schema to custom schemas. With target `analytics` and custom schema `analytics`, the actual Postgres schema is `analytics_analytics`.
+- **Product selector** — choose any product from a dropdown; all views update dynamically
+- **Three-curve demand visualization** — Units, Sales, and Contribution Margin plotted across the full observed price range with the balance point annotated
+- **Historical metrics panel** — current observed sales, contribution margin, units, and average retail price across all stores’ observed sales
+- **Balance point panel** — revenue at optimal price, maximum achievable contribution margin, margin opportunity, and the optimal price itself
 
-Two model tracks exist:
-- **Synthetic grocery data:** `stg_synthetic_transactions` → `dim_synthetic_products` → `fct_synthetic_daily_sales` → `mart_elasticity_validation` (sources from `raw` schema)
-- **Generated/Kaggle data:** `stg_transactions` → `dim_product` → `fact_sales` → `mart_daily_store_performance` (sources from `public` schema, requires Kaggle dataset)
+### A Note on Tableau Public vs Metabase
 
-### Airflow Pipeline
+The pipeline runs a live Metabase instance connected directly to PostgreSQL on the Mac Mini. For ease of sharing externally, I elected to publish the pricing tool to **Tableau Public** instead. Tableau Public makes the dashboard accessible via a single URL with no authentication required, which is the practical choice for a portfolio project.
 
-DAG `daily_grocery_refresh` runs the full synthetic pipeline daily at 6 AM UTC:
+The tradeoff is that Tableau Public only supports static data — the dashboard is built from CSV exports of the PostgreSQL data marts rather than a live database connection. In a production environment this tool would be published to **Tableau Server**, with data sources pointing at live mart tables that refresh on a scheduled cadence, eliminating the manual CSV export step entirely.
 
-| Task | Command | Purpose |
-|------|---------|---------|
-| `generate_synthetic_data` | `python scripts/generate_data.py` | Regenerate CSVs with known elasticities |
-| `load_data_to_postgres` | `python scripts/load_synthetic_data.py` | Load CSVs into Postgres `raw` schema |
-| `dbt_run_synthetic` | `dbt run --select tag:synthetic tag:elasticity` | Transform into dimensional models |
-| `run_demand_analysis` | `python analysis/demand_analysis.py` | Validate elasticity estimation |
+### Model Limitations
 
-Tasks run sequentially. Failure callback logs errors with timestamps. Airflow containers reach the data warehouse via `host.docker.internal` (Docker Desktop on macOS).
+For highly elastic products (elasticity < -1.8), the contribution margin curve tends to peak at or near the minimum observed price. The log-linear model predicts that volume gains from price reduction continue to outweigh margin losses across the observed range, meaning the balance point recommendation for these products is effectively “price as low as you have historically tested.” This is consistent with economic theory but not always actionable in practice. Practitioners should treat the balance point as a directional indicator rather than a precise target for highly elastic SKUs, and incorporate competitive pricing floors and category strategy before acting on the recommendation.
 
-A legacy Kaggle DAG (`grocery_analytics_pipeline`) also exists but is separate from the core validation workflow.
+-----
 
-## Getting Started
+## Part 2 — The Data Engineering Stack
 
-### Prerequisites
+*Coming soon. This section will cover the synthetic data generation approach, the five-layer dbt pipeline, validation methodology, Airflow orchestration, and infrastructure decisions. The short version: a PostgreSQL warehouse running in Docker, transformed by dbt, orchestrated by Airflow, and validated against known ground truth with ~2.4% MAPE across 32 products.*
 
-- Docker & Docker Compose
-- Python 3.12+
-- PostgreSQL client (optional, for direct queries)
-
-### Setup
-
-```bash
-# Start Postgres warehouse
-docker-compose up -d
-
-# Python environment
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-
-# Create config/.env
-mkdir -p config
-cat > config/.env << 'EOF'
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=grocery_analytics
-DB_USER=analytics_user
-DB_PASSWORD=analytics_pass
-EOF
-
-# Configure dbt profile (~/.dbt/profiles.yml)
-mkdir -p ~/.dbt
-cat > ~/.dbt/profiles.yml << 'EOF'
-grocery_analytics:
-  target: dev
-  outputs:
-    dev:
-      type: postgres
-      host: localhost
-      port: 5432
-      user: analytics_user
-      pass: analytics_pass
-      dbname: grocery_analytics
-      schema: analytics
-      threads: 4
-EOF
-```
-
-### Start Airflow (Optional)
-
-```bash
-# Start Airflow stack (webserver, scheduler, metadata Postgres)
-docker-compose -f docker-compose-airflow.yml up -d
-
-# Wait ~90 seconds for pip dependency install, then open:
-# http://localhost:8080 (login: airflow / airflow)
-
-# Unpause the daily_grocery_refresh DAG and trigger a manual run
-```
-
-Airflow containers install all Python dependencies at startup via `_PIP_ADDITIONAL_REQUIREMENTS`. The `GROCERY_DB_HOST` env var is set to `host.docker.internal` so scripts can reach the data warehouse Postgres on the host.
-
-### Run the Pipeline
-
-```bash
-source venv/bin/activate
-
-# Generate synthetic data with known elasticities
-python3 scripts/generate_data.py
-
-# Load into Postgres
-python3 scripts/load_synthetic_data.py
-
-# Run dbt models
-cd dbt/grocery_analytics
-dbt run --select tag:synthetic tag:elasticity
-dbt test --select tag:synthetic
-
-# Run elasticity validation
-cd ../..
-python3 analysis/demand_analysis.py
-
-# Results output to validation_results/
-```
-
-## Project Structure
-
-```
-grocery-analytics-platform/
-├── airflow/
-│   ├── dags/
-│   │   └── daily_grocery_refresh.py   # Daily synthetic pipeline DAG
-│   └── logs/                          # Airflow task logs + failure alerts
-├── analysis/
-│   └── demand_analysis.py             # Elasticity estimation & validation
-├── config/
-│   └── .env                           # Database credentials (gitignored)
-├── data/
-│   └── raw/                           # Generated CSVs (gitignored)
-├── dbt/
-│   ├── grocery_analytics/models/
-│   │   ├── staging/                   # stg_ views (cleaning/casting)
-│   │   ├── dimensions/                # dim_ tables (products, stores)
-│   │   └── marts/                     # fct_ and mart_ tables (analysis-ready)
-│   └── profiles/
-│       └── profiles.yml               # Container-specific dbt profile
-├── scripts/
-│   ├── generate_data.py               # Synthetic data with demand function
-│   ├── load_synthetic_data.py         # Load to Postgres raw schema
-│   ├── load_data_to_postgres.py       # Load generated CSVs to public schema
-│   ├── fetch_kaggle_inventory.py      # Kaggle dataset download
-│   └── load_kaggle_to_postgres.py     # Kaggle data loader
-├── validation_results/                # Analysis output (plots, CSVs)
-├── docker-compose.yml                 # Postgres warehouse
-├── docker-compose-airflow.yml         # Airflow stack
-├── setup_synthetic_data.sh            # Legacy end-to-end setup script
-└── requirements.txt
-```
+-----
 
 ## Key Dependencies
 
-`dbt-postgres`, `pandas`, `numpy`, `scipy`, `matplotlib`, `seaborn`, `sqlalchemy`, `psycopg2-binary`, `faker`, `python-dotenv`, `setuptools`
+`dbt-postgres` · `pandas` · `numpy` · `scipy` · `matplotlib` · `seaborn` · `sqlalchemy` · `psycopg2-binary` · `faker` · `python-dotenv`
