@@ -36,6 +36,8 @@ At any given price point the model predicts three curves:
 
 > **Note:** This is not a true contribution margin in the accounting sense, as it does not account for variable costs like labor, packaging, shrink, and theft. However, it makes sense as a target KPI for category managers and merchandising leadership, as finance typically sets margin targets at the category level against this metric.
 
+In the real world, elasticity isn't perfectly constant across all prices. Diminishing marginal utility means the eighth unit of a product is worth less to a consumer than the first, so price sensitivity can shift as price deviates further from where customers are expecting it. The constant-elasticity assumption is a useful approximation for the price ranges typically seen in grocery retail, where prices typically move incrementally rather than dramatically.
+
 ### The Balance Point
 
 The **balance point** is the price within the observed range that maximizes contribution margin. It is identified by evaluating the demand curve across the full observed price range in $0.01 increments and finding the peak of the margin curve.
@@ -63,7 +65,11 @@ The data pipeline runs a live Metabase instance connected directly to a PostgreS
 
 ### Model Limitations
 
-For highly elastic products (elasticity < -1.8), the contribution margin curve tends to peak at or near the minimum observed price. The log-linear model predicts that volume gains from price reduction continue to outweigh margin losses across the observed range, meaning the balance point recommendation for these products is effectively "price as low as you have in the historical data." This is consistent with economic theory but not always actionable in practice. Practitioners should treat the balance point as a directional indicator rather than a precise target for highly elastic SKUs, and incorporate competitive pricing floors and category strategy before acting on the recommendation.
+The elasticity estimation methodology (log-log regression: `ln(Q) = β₀ + β₁ × ln(P)`) was validated at 2.4% average error, with β₁ representing a constant elasticity — the percentage change in quantity demanded for a 1% change in price.
+
+For the dashboard curves, I generate the demand curves using a log-linear form (`Q(P) = b_intercept_exp × e^(b_ARP × P)`) and plug the validated elasticity in directly as the exponent's coefficient. This is a simplification I'm aware of — in the log-linear form, the point elasticity actually varies with price rather than staying constant, so the curves on the dashboard aren't strictly the same constant-elasticity curves that were validated. The fix would be to use the power form (`Q(P) = A × P^elasticity`) instead, which is the direct solution to the log-log model and keeps elasticity constant across the curve. That's on the list for a future iteration.
+
+Separately, for highly elastic products (elasticity < -1.8), the contribution margin curve tends to peak at or near the minimum observed price. The log-linear model predicts that volume gains from price reduction continue to outweigh margin losses across the observed range, meaning the balance point recommendation for these products is effectively "price as low as you have in the historical data." This is consistent with economic theory but not always actionable in practice. Practitioners should treat the balance point as a directional indicator rather than a precise target for highly elastic SKUs, and incorporate competitive pricing floors and category strategy before acting on the recommendation.
 
 ---
 
