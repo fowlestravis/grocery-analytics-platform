@@ -6,7 +6,7 @@ grocery_analytics:
       host: "{{ env_var('GROCERY_DB_HOST', 'localhost') }}"
       port: "{{ env_var('GROCERY_DB_PORT', '5432') | int }}"
       user: "{{ env_var('GROCERY_DB_USER', 'analytics_user') }}"
-      pass: "{{ env_var('GROCERY_DB_PASSWORD', 'analytics_pass') }}"
+      pass: "{{ env_var('GROCERY_DB_PASSWORD') }}"
       dbname: "{{ env_var('GROCERY_DB_NAME', 'grocery_analytics') }}"
       schema: analytics
       threads: 4

@@ -20,7 +20,7 @@ DB_CONFIG = {
     'port': os.getenv('GROCERY_DB_PORT', '5432'),
     'database': os.getenv('GROCERY_DB_NAME', 'grocery_analytics'),
     'user': os.getenv('GROCERY_DB_USER', 'analytics_user'),
-    'password': os.getenv('GROCERY_DB_PASSWORD', 'analytics_pass')
+    'password': os.environ['GROCERY_DB_PASSWORD']
 }
 
 CSV_FILE = 'data/kaggle/Grocery_Inventory new v1.csv'

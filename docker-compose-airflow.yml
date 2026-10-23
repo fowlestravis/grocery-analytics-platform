@@ -6,7 +6,7 @@ x-airflow-common:
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
-    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:-airflow}@postgres_airflow/${AIRFLOW_DB_NAME:-airflow}
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER:-airflow}:${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in .env}@postgres_airflow/${AIRFLOW_DB_NAME:-airflow}
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
@@ -17,7 +17,7 @@ x-airflow-common:
     GROCERY_DB_PORT: ${GROCERY_DB_PORT:-5432}
     GROCERY_DB_NAME: ${GROCERY_DB_NAME:-grocery_analytics}
     GROCERY_DB_USER: ${GROCERY_DB_USER:-analytics_user}
-    GROCERY_DB_PASSWORD: ${GROCERY_DB_PASSWORD:-analytics_pass}
+    GROCERY_DB_PASSWORD: ${GROCERY_DB_PASSWORD:?Set GROCERY_DB_PASSWORD in .env}
     MPLBACKEND: Agg
     DBT_PROFILES_DIR: /opt/airflow/dbt/profiles
   volumes:
@@ -43,7 +43,7 @@ services:
     container_name: airflow_postgres
     environment:
       POSTGRES_USER: ${AIRFLOW_DB_USER:-airflow}
-      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:-airflow}
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD:?Set AIRFLOW_DB_PASSWORD in .env}
       POSTGRES_DB: ${AIRFLOW_DB_NAME:-airflow}
     volumes:
       - postgres_airflow_data:/var/lib/postgresql/data
@@ -108,7 +108,7 @@ services:
       _AIRFLOW_DB_UPGRADE: 'true'
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_WWW_USER:-airflow}
-      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_WWW_PASSWORD:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_WWW_PASSWORD:?Set AIRFLOW_WWW_PASSWORD in .env}
     user: "0:0"
     volumes:
       - ./airflow:/sources
