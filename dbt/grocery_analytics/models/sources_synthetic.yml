@@ -27,3 +27,15 @@ sources:
         columns:
           - name: store_id
             tests: [unique, not_null]
+
+      - name: elasticity_estimates
+        description: Python-estimated elasticities persisted by demand_analysis.py for dbt validation
+        columns:
+          - name: upc
+            tests: [unique, not_null]
+          - name: true_elasticity
+            tests: [not_null]
+          - name: estimated_elasticity
+            tests: [not_null]
+          - name: error_pct
+            tests: [not_null]
