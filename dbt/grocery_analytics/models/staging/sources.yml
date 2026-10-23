@@ -33,10 +33,3 @@ sources:
             tests:
               - not_null
 
-      - name: raw_inventory
-        description: Kaggle grocery inventory data
-        columns:
-          - name: product_id
-            description: Product ID (unique identifier)
-            tests:
-              - not_null
