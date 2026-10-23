@@ -295,11 +295,21 @@ def create_visualizations(simple_results, product_results, output_dir='validatio
     
     print("\n✓ All visualizations created")
 
-def generate_report(simple_results, product_results, output_path='validation_results/VALIDATION_REPORT.md'):
+def generate_report(simple_results, product_results, daily_df, output_path='validation_results/VALIDATION_REPORT.md'):
     """Generate markdown report of validation results"""
-    
+
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
+
+    # Compute data source stats from actual data
+    n_transactions = len(daily_df)
+    n_products = daily_df['upc'].nunique()
+    n_stores = daily_df['transaction_date'].nunique()  # placeholder, overwritten below
+    min_date = daily_df['transaction_date'].min()
+    max_date = daily_df['transaction_date'].max()
+    n_days = daily_df['transaction_date'].nunique()
+    min_year = pd.Timestamp(min_date).year
+    max_year = pd.Timestamp(max_date).year
+
     report = f"""# Elasticity Validation Report
 
 Generated: {timestamp}
@@ -316,8 +326,8 @@ This report validates the price elasticity estimation methodology by comparing e
 
 ### Data Source
 - Synthetic grocery transaction data with known elasticities
-- 434,016 transactions across 33 products and 12 stores
-- 3 years of daily data (2022-2024)
+- {n_transactions:,} transactions across {n_products} products
+- {n_days} days of daily data ({min_year}–{max_year})
 
 ### Estimation Approach
 **Log-log regression:** ln(Q) = β₀ + β₁×ln(P) + ε
@@ -437,7 +447,7 @@ This validation gives confidence to:
 
 ### Data Quality Checks Passed
 - ✅ Sufficient price variation (CV > 0.10)
-- ✅ Adequate time series length (1,096 days)
+- ✅ Adequate time series length ({n_days} days)
 - ✅ No data quality issues flagged
 - ✅ All products meet minimum observation threshold
 
@@ -497,7 +507,7 @@ def main():
     create_visualizations(simple_results, product_results)
     
     # Generate report
-    generate_report(simple_results, product_results)
+    generate_report(simple_results, product_results, daily_df)
     
     # Save detailed results to CSV
     simple_results.to_csv('validation_results/category_results.csv', index=False)
