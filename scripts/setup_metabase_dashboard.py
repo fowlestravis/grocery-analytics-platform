@@ -1,12 +1,14 @@
 """
 Set up Metabase dashboard for Grocery Analytics via the Metabase API.
 
-Creates a dashboard with 5 card types:
+Creates a dashboard with 7 card types:
   1. KPI cards (total products, total transactions, data freshness)
   2. Category performance (bar chart)
   3. Elasticity scatter plot (true vs estimated)
   4. Daily sales trend (line chart)
   5. Validation error % (big number)
+  6. Demand curves (price vs quantity, line chart)
+  7. Demand curves log-log (ln(price) vs ln(quantity), slope = elasticity)
 """
 
 import requests
@@ -131,6 +133,69 @@ def main():
             "graph.y_axis.title_text": "Daily Sales ($)",
         })
 
+    # -- Card 8: Demand Curves (line chart) --
+    # The centerpiece visualization showing price-quantity relationship
+    print("Creating card: Demand Curves...")
+    demand_curve_sql = """
+        WITH selected_products AS (
+            -- 5 products spanning the elasticity spectrum across categories
+            SELECT upc, product_name, category, true_elasticity
+            FROM analytics_analytics.dim_synthetic_products
+            WHERE product_name IN ('Cheddar Cheese', 'Tomatoes', 'Potato Chips', 'Sparkling Water','Coffee Beans')
+        ),
+        binned AS (
+            SELECT
+                p.product_name,
+                p.true_elasticity,
+                s.price,
+                s.units_sold,
+                NTILE(20) OVER (PARTITION BY s.upc ORDER BY s.price) AS price_bin
+            FROM analytics_analytics.fct_synthetic_daily_sales s
+            JOIN selected_products p ON s.upc = p.upc
+            WHERE s.price > 0 AND s.units_sold > 0
+        )
+        SELECT
+            product_name || ' (e=' || ROUND(true_elasticity::numeric, 2) || ')' AS product,
+            ROUND(AVG(price)::numeric, 2) AS avg_price,
+            ROUND(AVG(units_sold)::numeric, 1) AS avg_quantity
+        FROM binned
+        GROUP BY product_name, true_elasticity, price_bin
+        ORDER BY product_name, avg_price
+    """
+    c_demand = create_native_card(session, "Demand Curves: Price vs Quantity", db_id,
+        demand_curve_sql,
+        display="line",
+        viz_settings={
+            "graph.dimensions": ["AVG_PRICE"],
+            "graph.metrics": ["AVG_QUANTITY"],
+            "graph.series_order_dimension": "PRODUCT",
+            "graph.x_axis.title_text": "Price ($)",
+            "graph.y_axis.title_text": "Avg Quantity Demanded",
+        })
+
+    # -- Card 9: Demand Curves Log-Log (line chart) --
+    print("Creating card: Demand Curves (Log-Log)...")
+    log_demand_sql = demand_curve_sql.replace(
+        "ROUND(AVG(price)::numeric, 2) AS avg_price",
+        "ROUND(LN(AVG(price))::numeric, 3) AS ln_price"
+    ).replace(
+        "ROUND(AVG(units_sold)::numeric, 1) AS avg_quantity",
+        "ROUND(LN(AVG(units_sold))::numeric, 3) AS ln_quantity"
+    ).replace(
+        "ORDER BY product_name, avg_price",
+        "ORDER BY product_name, ln_price"
+    )
+    c_log_demand = create_native_card(session, "Demand Curves: Log-Log (Slope = Elasticity)", db_id,
+        log_demand_sql,
+        display="line",
+        viz_settings={
+            "graph.dimensions": ["LN_PRICE"],
+            "graph.metrics": ["LN_QUANTITY"],
+            "graph.series_order_dimension": "PRODUCT",
+            "graph.x_axis.title_text": "ln(Price)",
+            "graph.y_axis.title_text": "ln(Quantity)",
+        })
+
     # -- Card 7: Validation Error % (big number) --
     print("Creating card: Validation Error %...")
     c_error = create_native_card(session, "Avg Validation Error %", db_id,
@@ -173,6 +238,9 @@ def main():
         # Row 3: Daily trend + Validation error
         {"id": c_trend,        "col": 0,  "row": 9, "size_x": 14, "size_y": 6},
         {"id": c_error,        "col": 14, "row": 9, "size_x": 4,  "size_y": 6},
+        # Row 4: Demand curves (centerpiece)
+        {"id": c_demand,       "col": 0,  "row": 15, "size_x": 9,  "size_y": 8},
+        {"id": c_log_demand,   "col": 9,  "row": 15, "size_x": 9,  "size_y": 8},
     ]
 
     ordered_cards = []
@@ -191,7 +259,7 @@ def main():
     })
 
     print(f"\nDashboard ready at: {MB_URL}/dashboard/{dash_id}")
-    print("Cards created: 7 (3 KPIs + category bar + elasticity scatter + daily trend + error %)")
+    print("Cards created: 9 (3 KPIs + category bar + elasticity scatter + daily trend + error % + 2 demand curves)")
 
 
 if __name__ == "__main__":
