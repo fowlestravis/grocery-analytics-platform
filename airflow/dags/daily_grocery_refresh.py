@@ -47,7 +47,13 @@ load_data = BashOperator(
 
 dbt_run = BashOperator(
     task_id='dbt_run_synthetic',
-    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt run --no-version-check --select tag:synthetic tag:elasticity',
+    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt run --select tag:synthetic tag:elasticity',
+    dag=dag,
+)
+
+dbt_test = BashOperator(
+    task_id='dbt_test_synthetic',
+    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt test --select tag:synthetic tag:elasticity',
     dag=dag,
 )
 
@@ -57,4 +63,4 @@ run_analysis = BashOperator(
     dag=dag,
 )
 
-generate_data >> load_data >> dbt_run >> run_analysis
+generate_data >> load_data >> dbt_run >> dbt_test >> run_analysis

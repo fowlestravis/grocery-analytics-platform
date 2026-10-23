@@ -55,27 +55,27 @@ load_kaggle = BashOperator(
 # Task 3: Run dbt staging models
 dbt_staging = BashOperator(
     task_id='dbt_run_staging',
-    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt run --no-version-check --select staging',
+    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt run --select staging',
     dag=dag,
 )
 
 # Task 4: Run dbt dimensional models
 dbt_dimensions = BashOperator(
     task_id='dbt_run_dimensions',
-    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt run --no-version-check --select dimensions',
+    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt run --select dimensions',
     dag=dag,
 )
 
 # Task 5: Run dbt marts
 dbt_marts = BashOperator(
     task_id='dbt_run_marts',
-    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt run --no-version-check  --select marts',
+    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt run  --select marts',
     dag=dag,
 )
 # Task 6: Run dbt tests
 dbt_test = BashOperator(
     task_id='dbt_test',
-    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt --no-version-check test',
+    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt test',
     dag=dag,
 )
 
