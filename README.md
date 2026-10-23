@@ -79,6 +79,19 @@ Separately, for highly elastic products (elasticity < -1.8), the contribution ma
 
 ---
 
+## Getting Started
+
+```bash
+cp .env.example .env   # then fill in your database and Metabase credentials
+docker compose up -d    # starts PostgreSQL warehouse + Metabase
+```
+
+Docker Compose requires `.env` to be present — it will error on missing password variables. See `.env.example` for the full list.
+
+## Known Limitations
+
+- Three products exceed 5% estimation error: **Bell Peppers** (6.2%, Produce), **Cheddar Cheese** (5.7%, Dairy), and **Greek Yogurt** (5.2%, Dairy). All have low-magnitude elasticities (|ε| < 1.3) where small absolute errors produce larger percentage errors.
+
 ## Key Dependencies
 
 `dbt-postgres` · `pandas` · `numpy` · `scipy` · `matplotlib` · `seaborn` · `sqlalchemy` · `psycopg2-binary` · `faker` · `python-dotenv`

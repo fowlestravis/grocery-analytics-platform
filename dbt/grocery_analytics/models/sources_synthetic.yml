@@ -7,7 +7,7 @@ sources:
     schema: raw
     tables:
       - name: synthetic_transactions
-        description: Daily transaction data (434K records, 2022-2024)
+        description: Daily transaction data (280K records, 32 products × 12 stores × 730 days, 2023-2024)
         columns:
           - name: transaction_date
             tests: [not_null]
