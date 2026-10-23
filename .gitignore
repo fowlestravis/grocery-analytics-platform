@@ -18,6 +18,7 @@ data/
 dbt/grocery_analytics/target/
 dbt/grocery_analytics/dbt_packages/
 dbt/grocery_analytics/logs/
+dbt/logs/
 
 # Airflow
 airflow/logs/
@@ -33,11 +34,8 @@ airflow/logs/
 validation_results/*.png
 validation_results/*.csv
 exports/
-CLAUDE.md
-.claude/
-CLAUDE.md
-.claude/
-logs/
+
+# Claude Code
 CLAUDE.md
 .claude/
 logs/
