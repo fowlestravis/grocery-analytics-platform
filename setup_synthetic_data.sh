@@ -12,6 +12,13 @@
 
 set -e  # Exit on error
 
+# Load environment variables
+if [ -f "$(dirname "$0")/.env" ]; then
+    set -a; source "$(dirname "$0")/.env"; set +a
+elif [ -f ".env" ]; then
+    set -a; source ".env"; set +a
+fi
+
 PROJECT_ROOT="/Users/travisfowles/grocery-analytics-platform"  # UPDATE THIS!
 SYNTHETIC_DATA_DIR="/Users/travisfowles/grocery-analytics-platform/data/raw"  # UPDATE THIS!
 
@@ -63,15 +70,19 @@ mkdir -p scripts
 
 cat > scripts/load_synthetic_data.py << 'LOADSCRIPT'
 #!/usr/bin/env python3
+import os
 import pandas as pd
 from sqlalchemy import create_engine
+from dotenv import load_dotenv
 import sys
 
-DB_HOST = "localhost"
-DB_PORT = "5432"
-DB_NAME = "grocery_analytics"
-DB_USER = "analytics_user"
-DB_PASS = "analytics_pass"
+load_dotenv()
+
+DB_HOST = os.environ.get("GROCERY_DB_HOST", "localhost")
+DB_PORT = os.environ.get("GROCERY_DB_PORT", "5432")
+DB_NAME = os.environ.get("GROCERY_DB_NAME", "grocery_analytics")
+DB_USER = os.environ.get("GROCERY_DB_USER", "analytics_user")
+DB_PASS = os.environ.get("GROCERY_DB_PASSWORD", "analytics_pass")
 
 conn_string = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
@@ -382,7 +393,7 @@ echo "==========================================================================
 echo ""
 
 # Check row counts
-docker exec -i grocery_postgres psql -U analytics_user -d grocery_analytics << VERIFYQL
+docker exec -i grocery_postgres psql -U "${GROCERY_DB_USER:-analytics_user}" -d "${GROCERY_DB_NAME:-grocery_analytics}" << VERIFYQL
 SELECT 
     'Transactions' as table_name,
     COUNT(*) as row_count 

@@ -11,12 +11,16 @@ Creates a dashboard with 7 card types:
   7. Demand curves log-log (ln(price) vs ln(quantity), slope = elasticity)
 """
 
+import os
 import requests
 import sys
+from dotenv import load_dotenv
 
-MB_URL = "http://localhost:3000"
-MB_EMAIL = "tvfowles@gmail.com"
-MB_PASS = "MzJVDGqvPQyNRpEW1CJ#"
+load_dotenv()
+
+MB_URL = os.environ.get("METABASE_URL", "http://localhost:3000")
+MB_EMAIL = os.environ.get("METABASE_EMAIL")
+MB_PASS = os.environ.get("METABASE_PASSWORD")
 
 
 def get_session():

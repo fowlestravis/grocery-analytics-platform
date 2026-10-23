@@ -5,15 +5,15 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables
-load_dotenv('config/.env')
+load_dotenv()
 
 # Database connection parameters
 DB_CONFIG = {
-    'host': os.getenv('GROCERY_DB_HOST', os.getenv('DB_HOST', 'localhost')),
-    'port': os.getenv('DB_PORT'),
-    'database': os.getenv('DB_NAME'),
-    'user': os.getenv('DB_USER'),
-    'password': os.getenv('DB_PASSWORD')
+    'host': os.getenv('GROCERY_DB_HOST', 'localhost'),
+    'port': os.getenv('GROCERY_DB_PORT', '5432'),
+    'database': os.getenv('GROCERY_DB_NAME', 'grocery_analytics'),
+    'user': os.getenv('GROCERY_DB_USER', 'analytics_user'),
+    'password': os.getenv('GROCERY_DB_PASSWORD', 'analytics_pass')
 }
 
 DATA_DIR = 'data/raw'

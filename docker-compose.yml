@@ -5,9 +5,9 @@ services:
     image: postgres:15
     container_name: grocery_postgres
     environment:
-      POSTGRES_USER: analytics_user
-      POSTGRES_PASSWORD: analytics_pass
-      POSTGRES_DB: grocery_analytics
+      POSTGRES_USER: ${GROCERY_DB_USER:-analytics_user}
+      POSTGRES_PASSWORD: ${GROCERY_DB_PASSWORD:-analytics_pass}
+      POSTGRES_DB: ${GROCERY_DB_NAME:-grocery_analytics}
     ports:
       - "5432:5432"
     volumes:

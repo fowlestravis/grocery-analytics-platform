@@ -12,15 +12,15 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Load environment variables
-load_dotenv('config/.env')
+load_dotenv()
 
 # Database connection parameters
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST'),
-    'port': os.getenv('DB_PORT'),
-    'database': os.getenv('DB_NAME'),
-    'user': os.getenv('DB_USER'),
-    'password': os.getenv('DB_PASSWORD')
+    'host': os.getenv('GROCERY_DB_HOST', 'localhost'),
+    'port': os.getenv('GROCERY_DB_PORT', '5432'),
+    'database': os.getenv('GROCERY_DB_NAME', 'grocery_analytics'),
+    'user': os.getenv('GROCERY_DB_USER', 'analytics_user'),
+    'password': os.getenv('GROCERY_DB_PASSWORD', 'analytics_pass')
 }
 
 CSV_FILE = 'data/kaggle/Grocery_Inventory new v1.csv'

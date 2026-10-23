@@ -17,10 +17,17 @@ from sqlalchemy import create_engine, text
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Database connection
 _db_host = os.environ.get("GROCERY_DB_HOST", "localhost")
-DATABASE_URL = f"postgresql://analytics_user:analytics_pass@{_db_host}:5432/grocery_analytics"
+_db_port = os.environ.get("GROCERY_DB_PORT", "5432")
+_db_name = os.environ.get("GROCERY_DB_NAME", "grocery_analytics")
+_db_user = os.environ.get("GROCERY_DB_USER", "analytics_user")
+_db_pass = os.environ.get("GROCERY_DB_PASSWORD", "analytics_pass")
+DATABASE_URL = f"postgresql://{_db_user}:{_db_pass}@{_db_host}:{_db_port}/{_db_name}"
 
 def load_data(engine):
     """Load aggregated data from mart for elasticity estimation"""
