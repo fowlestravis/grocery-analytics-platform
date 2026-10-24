@@ -6,7 +6,7 @@ A grocery pricing analytics platform that estimates price elasticity of demand u
 
 ---
 
-## Part 1 — The Pricing Tool
+## Part 1 : The Pricing Tool
 
 ### Background
 
@@ -14,15 +14,15 @@ This dashboard is meant as a unit pricing guidance tool for assortment and promo
 
 ### The Business Problem
 
-Retailers — and grocers especially — need to understand how changing an item's price will affect its demand. This is a fundamental concept in microeconomics. To use an example from this dataset: a 10% price increase on milk will not cause many customers to go without, because milk has inelastic demand. However, a 10% increase on Potato Chips could cut sales significantly due to their elastic demand — customers will either trade down to a lower tier brand or skip the chips entirely.
+Retailers (and grocers especially) need to understand how changing an item's price will affect its demand. This is a fundamental concept in microeconomics. To use an example from this dataset: a 10% price increase on milk will not cause many customers to go without, because milk has inelastic demand. However, a 10% increase on potato chips could cut sales significantly due to their elastic demand — customers will either trade down to a lower tier brand or skip the chips entirely.
 
-Quantifying these changes — what microeconomists call the price elasticity of demand — is an important part of pricing analysis, promotion planning, and category management. This project is meant to solve a common problem with retail data: gaps or lack of clean sales data. Each product in this synthetic dataset has a known elasticity assigned from category-appropriate ranges found in academic economics literature (generally speaking, dairy staples are relatively inelastic, snacks relatively elastic, etc.). Those known elasticities are baked into the synthetic transaction data, and the regression methodology is then tested to see whether it can recover them. If the methodology we use can recover elasticities we already know to be true, we can trust it on real transactional data where the true elasticity is unknown.
+Quantifying these changes (what microeconomists call the price elasticity of demand) is an important part of pricing analysis, promotion planning, and category management. This project is meant to solve a common problem with retail data: gaps or lack of clean sales data. Each product in this synthetic dataset has a known elasticity assigned from category-appropriate ranges found in academic economics literature (generally speaking, dairy staples are relatively inelastic, snacks relatively elastic, etc.). Those known elasticities are baked into the synthetic transaction data, and the regression methodology is then tested to see whether it can recover them. If the methodology we use can recover elasticities we already know to be true, we can trust it on real transactional data where the true elasticity is unknown.
 
 **Key result:** The pipeline validates log-log regression methodology for production use with a **2.4% average elasticity error** across 32 products.
 
 ### Demand Curve Methodology
 
-The demand curve is constructed from log-log regression coefficients using the exponential form of the constant-elasticity model. We use logs and exponents in the equation to smooth the underlying data and control for outliers:
+The demand curve coefficients come from the log-log regression described above. For the dashboard, I generate the curves using an exponential form (see Model Limitations for how this relates to the elasticity estimates above):
 
 ```
 Q(P) = b_intercept_exp × e^(b_ARP × P)
@@ -30,9 +30,9 @@ Q(P) = b_intercept_exp × e^(b_ARP × P)
 
 At any given price point the model predicts three curves:
 
-- **Units** — volume response to price change
-- **Sales** — revenue (units × price)
-- **Contribution Margin** — direct product margin: `Contribution Margin = Sales − (Units × Cost)`
+- **Units**: volume response to price change
+- **Sales**: revenue (units × price)
+- **Contribution Margin**: direct product margin: `Contribution Margin = Sales − (Units × Cost)`
 
 > **Note:** This is not a true contribution margin in the accounting sense, as it does not account for variable costs like labor, packaging, shrink, and theft. However, it makes sense as a target KPI for category managers and merchandising leadership, as finance typically sets margin targets at the category level against this metric.
 
@@ -61,7 +61,7 @@ The Tableau Public dashboard provides an interactive product-level pricing tool 
 
 ### A Note on Tableau Public vs Metabase
 
-The data pipeline runs a live Metabase instance connected directly to a PostgreSQL instance on a dedicated Mac Mini I use as a server. For ease of sharing externally, I elected to publish the pricing tool to Tableau Public instead. This is the right choice for sharing externally as no authentication is needed, and all the data can be accessed from a single URL. The tradeoff is that Tableau Public only supports static data, so the dashboard is built from CSV exports rather than a live connection. In production this would run on Tableau Server with data sources pointing at live data mart tables on a scheduled refresh.
+The data pipeline runs a live Metabase instance connected directly to a PostgreSQL instance on a dedicated Mac Mini I use as a server. For ease of sharing externally, I elected to publish the pricing tool to Tableau Public instead, as no authentication is needed, and all the data can be accessed from a single URL. The tradeoff is that Tableau Public only supports static data, so the dashboard is built from CSV exports rather than a live connection. In production this would run on Tableau Server with data sources pointing at live data mart tables on a scheduled refresh.
 
 ### Model Limitations
 
@@ -75,7 +75,7 @@ The elasticity estimation methodology (log-log regression: `ln(Q) = β₀ + β�
 
 ---
 
-## Part 2 — The Data Engineering Stack
+## Part 2 : The Data Engineering Stack
 
 *Coming soon.* This section will cover the synthetic data generation approach, the five-layer dbt pipeline, validation methodology, Airflow orchestration, and infrastructure decisions. The short version: a PostgreSQL warehouse running in Docker, transformed by dbt, orchestrated by Airflow, and validated against known ground truth with ~2.4% average elasticity error across 32 products.
 
