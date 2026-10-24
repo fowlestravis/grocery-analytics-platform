@@ -53,7 +53,7 @@ dbt_run = BashOperator(
 
 dbt_test = BashOperator(
     task_id='dbt_test_synthetic',
-    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt test --select tag:synthetic tag:elasticity source:synthetic_grocery.elasticity_estimates',
+    bash_command='cd /opt/airflow/dbt/grocery_analytics && dbt test',
     dag=dag,
 )
 
