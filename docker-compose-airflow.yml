@@ -103,6 +103,8 @@ services:
         exec /entrypoint airflow version
     environment:
       <<: *airflow-common-env
+      # Init runs as root, and the image refuses to pip install as root
+      _PIP_ADDITIONAL_REQUIREMENTS: ''
       _AIRFLOW_DB_UPGRADE: 'true'
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_WWW_USER:-airflow}
