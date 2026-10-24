@@ -453,12 +453,16 @@ conflates product-level demand differences with the price effect.
 **Overall Performance (Method 2):**
 """
 
+    # Computed outside the f-string: Python < 3.12 (Airflow's 3.11) rejects
+    # backslash escapes inside f-string expressions
+    validation_status = '✅ **PASSED**' if m2_avg_error_pct < 5 else '⚠️ **REVIEW NEEDED**'
+
     report += f"""- Mean absolute percentage error: {m2_avg_error_pct:.1f}%
 - Mean absolute error: {m2_avg_error:.3f}
 - 95% CI coverage: {coverage_rate:.0f}%
 - Products above 5% error: {(product_results['error_pct'] > 5).sum()}
 
-**Validation Status:** {'\u2705 **PASSED**' if m2_avg_error_pct < 5 else '\u26a0\ufe0f **REVIEW NEEDED**'}
+**Validation Status:** {validation_status}
 
 ### Limitations
 - Results specific to synthetic data with known characteristics
