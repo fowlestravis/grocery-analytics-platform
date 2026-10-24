@@ -94,6 +94,8 @@ def best_price(prices, scale, elasticity, cost, lo, hi):
 def classify_optimum(unconstrained, guard_lo, guard_hi, obs_lo, obs_hi):
     if unconstrained is None:
         return FLAG_NO_OPTIMUM
+    # Compare at cent precision so a sub-cent overshoot isn't flagged
+    unconstrained = round(unconstrained, 2)
     if unconstrained < guard_lo or unconstrained > guard_hi:
         return FLAG_GUARDRAIL
     if unconstrained < obs_lo or unconstrained > obs_hi:
