@@ -29,6 +29,10 @@ _db_user = os.environ.get("GROCERY_DB_USER", "analytics_user")
 _db_pass = os.environ["GROCERY_DB_PASSWORD"]
 DATABASE_URL = f"postgresql://{_db_user}:{_db_pass}@{_db_host}:{_db_port}/{_db_name}"
 
+# Anchor outputs to the project root so results land in the same place
+# regardless of the working directory the script is run from
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'validation_results')
+
 def load_data(engine):
     """Load aggregated data from mart for elasticity estimation"""
     
@@ -214,7 +218,7 @@ def estimate_elasticity_product_level(daily_df, mart_df):
     
     return results_df
 
-def create_visualizations(simple_results, product_results, output_dir='validation_results'):
+def create_visualizations(simple_results, product_results, output_dir=OUTPUT_DIR):
     """Create visualization plots for validation results"""
     
     import os
@@ -308,7 +312,7 @@ def create_visualizations(simple_results, product_results, output_dir='validatio
     
     print("\n✓ All visualizations created")
 
-def generate_report(simple_results, product_results, daily_df, output_path='validation_results/VALIDATION_REPORT.md'):
+def generate_report(simple_results, product_results, daily_df, output_path=os.path.join(OUTPUT_DIR, 'VALIDATION_REPORT.md')):
     """Generate markdown report of validation results"""
 
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -524,14 +528,14 @@ def main():
         print(f"✓ Persisted {len(estimates_df)} estimates to raw.elasticity_estimates")
 
     # Save detailed results to CSV
-    simple_results.to_csv('validation_results/category_results.csv', index=False)
+    simple_results.to_csv(os.path.join(OUTPUT_DIR, 'category_results.csv'), index=False)
     if len(product_results) > 0:
-        product_results.to_csv('validation_results/product_results.csv', index=False)
+        product_results.to_csv(os.path.join(OUTPUT_DIR, 'product_results.csv'), index=False)
     
     print("\n" + "="*60)
     print("VALIDATION COMPLETE")
     print("="*60)
-    print("\nResults saved to validation_results/")
+    print(f"\nResults saved to {OUTPUT_DIR}/")
     print("  - VALIDATION_REPORT.md (full report)")
     print("  - category_validation.png")
     print("  - product_validation.png")
