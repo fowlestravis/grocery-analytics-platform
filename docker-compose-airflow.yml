@@ -76,6 +76,10 @@ services:
     <<: *airflow-common
     container_name: airflow_scheduler
     command: scheduler
+    environment:
+      <<: *airflow-common-env
+      # Serves the :8974/health endpoint the healthcheck below polls
+      AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
       interval: 30s
