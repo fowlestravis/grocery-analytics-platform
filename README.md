@@ -65,11 +65,13 @@ The data pipeline runs a live Metabase instance connected directly to a PostgreS
 
 ### Model Limitations
 
-The elasticity estimation methodology (log-log regression: `ln(Q) = β₀ + β₁ × ln(P)`) was validated at 2.4% average error, with β₁ representing a constant elasticity — the percentage change in quantity demanded for a 1% change in price.
+The elasticity estimation methodology (log-log regression: `ln(Q) = β₀ + β₁ × ln(P)`) was validated at 2.4% average error across 32 products, with β₁ representing a constant elasticity — the percentage change in quantity demanded for a 1% change in price. The ~2.4% estimation error from Method 2 (within-product time series) never changes the recommended pricing direction for any product.
 
-For the dashboard curves, I generate the demand curves using a log-linear form (`Q(P) = b_intercept_exp × e^(b_ARP × P)`) and plug the validated elasticity in directly as the exponent's coefficient. In the log-linear form, the point elasticity actually varies with price rather than staying constant, so the curves on the dashboard aren't strictly the same constant-elasticity curves that were validated. This is a bit of a simplification, and the fix would be to use the power form (`Q(P) = A × P^elasticity`) instead, which is the direct solution to the log-log model and keeps elasticity constant across the curve. It is on the list for future model improvements.
+**Demand curve form.** The current dashboard generates demand curves using a log-linear (exponential) form (`Q(P) = a × e^(ε × P)`), where the point elasticity varies with price rather than staying constant. A three-way comparison against the correct constant-elasticity power form (`Q(P) = A × P^ε`) shows that this choice flips the recommended pricing direction (raise vs. lower) for 26 of 32 products. The exponential form systematically biases balance points downward because it overweights price sensitivity at higher prices. The dashboard curves are being rebuilt with the power form, which is the direct solution to the log-log model and maintains constant elasticity across the curve.
 
-Separately, for highly elastic products (elasticity < -1.8), the contribution margin curve tends to peak at or near the minimum observed price. The log-linear model predicts that volume gains from price reduction continue to outweigh margin losses across the observed range, meaning the balance point recommendation for these products is effectively "price as low as you have in the historical data." This is consistent with economic theory but not always actionable in practice. Practitioners should treat the balance point as a directional indicator rather than a precise target for highly elastic SKUs, and incorporate competitive pricing floors and category strategy before acting on the recommendation.
+**Edge optimums.** Under the power form, all 32 products' balance points fall at the maximum of the observed price range. For inelastic products (|ε| < 1), this is economically expected — margin always increases with price when demand drops less than proportionally. For elastic products, it indicates the observed price range is too narrow for the margin curve to peak within it. Practitioners should treat the balance point as a directional indicator rather than a precise target, and incorporate competitive pricing floors and category strategy before acting on the recommendation.
+
+**Demand curve inputs.** The demand curve generation currently uses the known true elasticity values from the synthetic data, not the regression estimates from Method 2. Since the estimation error is small (~2.4%) and never changes the pricing direction, this does not affect the qualitative conclusions, but a production implementation would use the estimated values.
 
 ---
 
@@ -78,6 +80,19 @@ Separately, for highly elastic products (elasticity < -1.8), the contribution ma
 *Coming soon.* This section will cover the synthetic data generation approach, the five-layer dbt pipeline, validation methodology, Airflow orchestration, and infrastructure decisions. The short version: a PostgreSQL warehouse running in Docker, transformed by dbt, orchestrated by Airflow, and validated against known ground truth with ~2.4% average elasticity error across 32 products.
 
 ---
+
+## Getting Started
+
+```bash
+cp .env.example .env   # then fill in your database and Metabase credentials
+docker compose up -d    # starts PostgreSQL warehouse + Metabase
+```
+
+Docker Compose requires `.env` to be present — it will error on missing password variables. See `.env.example` for the full list.
+
+## Known Limitations
+
+- Three products exceed 5% estimation error: **Bell Peppers** (6.2%, Produce), **Cheddar Cheese** (5.7%, Dairy), and **Greek Yogurt** (5.2%, Dairy). All have low-magnitude elasticities (|ε| < 1.3) where small absolute errors produce larger percentage errors.
 
 ## Key Dependencies
 

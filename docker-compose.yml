@@ -1,13 +1,11 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15
     container_name: grocery_postgres
     environment:
-      POSTGRES_USER: analytics_user
-      POSTGRES_PASSWORD: analytics_pass
-      POSTGRES_DB: grocery_analytics
+      POSTGRES_USER: ${GROCERY_DB_USER:-analytics_user}
+      POSTGRES_PASSWORD: ${GROCERY_DB_PASSWORD:?Set GROCERY_DB_PASSWORD in .env}
+      POSTGRES_DB: ${GROCERY_DB_NAME:-grocery_analytics}
     ports:
       - "5432:5432"
     volumes:
@@ -15,7 +13,7 @@ services:
     restart: unless-stopped
 
   metabase:
-    image: metabase/metabase:latest
+    image: metabase/metabase:v0.58.7.1
     container_name: grocery_metabase
     ports:
       - "3000:3000"

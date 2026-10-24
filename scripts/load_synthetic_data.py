@@ -2,13 +2,16 @@
 import os
 import pandas as pd
 from sqlalchemy import create_engine, text
+from dotenv import load_dotenv
 import sys
 
+load_dotenv()
+
 DB_HOST = os.environ.get("GROCERY_DB_HOST", "localhost")
-DB_PORT = "5432"
-DB_NAME = "grocery_analytics"
-DB_USER = "analytics_user"
-DB_PASS = "analytics_pass"
+DB_PORT = os.environ.get("GROCERY_DB_PORT", "5432")
+DB_NAME = os.environ.get("GROCERY_DB_NAME", "grocery_analytics")
+DB_USER = os.environ.get("GROCERY_DB_USER", "analytics_user")
+DB_PASS = os.environ["GROCERY_DB_PASSWORD"]
 
 conn_string = f"postgresql://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 

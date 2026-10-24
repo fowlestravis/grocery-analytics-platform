@@ -1,0 +1,82 @@
+version: 2
+
+models:
+  - name: dim_synthetic_products
+    description: Product dimension with true elasticities and derived classifications
+    columns:
+      - name: upc
+        tests:
+          - unique
+          - not_null
+      - name: category
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Dairy', 'Produce', 'Snacks', 'Beverages']
+      - name: price_tier
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Budget', 'Mid-Tier', 'Premium']
+      - name: elasticity_category
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Inelastic', 'Unit Elastic', 'Elastic']
+      - name: true_elasticity
+        tests:
+          - not_null
+      - name: base_price
+        tests:
+          - not_null
+
+  - name: dim_synthetic_stores
+    description: Store dimension with size classifications
+    columns:
+      - name: store_id
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_synthetic_daily_sales
+    description: Daily sales fact table joining transactions with product and store dimensions
+    columns:
+      - name: transaction_date
+        tests:
+          - not_null
+      - name: upc
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_synthetic_products')
+              field: upc
+      - name: store_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_synthetic_stores')
+              field: store_id
+      - name: category
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Dairy', 'Produce', 'Snacks', 'Beverages']
+      - name: units_sold
+        tests:
+          - not_null
+      - name: price
+        tests:
+          - not_null
+
+  - name: mart_elasticity_validation
+    description: Product-level aggregates for elasticity validation
+    columns:
+      - name: upc
+        tests:
+          - unique
+          - not_null
+      - name: data_quality_flag
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['Sufficient Data', 'Insufficient Observations', 'No Price Variation', 'Check Data']

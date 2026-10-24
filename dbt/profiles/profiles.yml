@@ -4,9 +4,9 @@ grocery_analytics:
     dev:
       type: postgres
       host: "{{ env_var('GROCERY_DB_HOST', 'localhost') }}"
-      port: 5432
-      user: analytics_user
-      pass: analytics_pass
-      dbname: grocery_analytics
+      port: "{{ env_var('GROCERY_DB_PORT', '5432') | int }}"
+      user: "{{ env_var('GROCERY_DB_USER', 'analytics_user') }}"
+      pass: "{{ env_var('GROCERY_DB_PASSWORD') }}"
+      dbname: "{{ env_var('GROCERY_DB_NAME', 'grocery_analytics') }}"
       schema: analytics
       threads: 4
