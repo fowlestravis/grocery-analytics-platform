@@ -3,7 +3,7 @@
 # Synthetic Grocery Data Setup Script
 #
 # Orchestrates the full synthetic data pipeline using existing scripts
-# and dbt models. Safe to re-run — does not overwrite model files.
+# and dbt models, in the same order as the daily_grocery_refresh DAG. Safe to re-run — does not overwrite model files.
 #
 # Prerequisites:
 #   - .env file at project root (copy from .env.example)
@@ -59,11 +59,24 @@ echo "✓ dbt models executed"
 echo ""
 
 # ============================================================================
-# STEP 4: Run dbt Tests
+# STEP 4: Run Demand Analysis
 # ============================================================================
-echo "Step 4: Running dbt tests..."
+# Persists raw.elasticity_estimates, which the dbt tests validate
+echo "Step 4: Running demand analysis..."
 echo ""
-dbt test --select tag:synthetic tag:elasticity
+cd "$PROJECT_ROOT"
+python3 analysis/demand_analysis.py
+echo ""
+echo "✓ Analysis complete (results in validation_results/)"
+echo ""
+
+# ============================================================================
+# STEP 5: Run dbt Tests
+# ============================================================================
+echo "Step 5: Running dbt tests..."
+echo ""
+cd dbt/grocery_analytics
+dbt test
 echo ""
 echo "✓ dbt tests passed"
 echo ""
