@@ -4,7 +4,7 @@ Set up Metabase dashboard for Grocery Analytics via the Metabase API.
 Idempotent: finds existing cards/dashboards by name and updates them,
 or creates new ones if they don't exist. Safe to re-run.
 
-Creates/updates 9 cards on a single dashboard:
+Creates/updates 10 cards on a single dashboard:
   1. Total Products (KPI)
   2. Total Transactions (KPI)
   3. Data Freshness (KPI)
@@ -14,6 +14,7 @@ Creates/updates 9 cards on a single dashboard:
   7. Avg Validation Error % (big number)
   8. Demand Curves: Price vs Quantity (line chart)
   9. Demand Curves: Log-Log (line chart)
+  10. Demand Curve Interactive (line chart with category/product filters)
 
 Usage:
   python scripts/setup_metabase_dashboard.py            # create or update
@@ -72,7 +73,8 @@ def find_dashboard_by_name(session, name):
     return [d for d in dashboards if d["name"] == name]
 
 
-def upsert_native_card(session, name, db_id, sql, display="scalar", viz_settings=None):
+def upsert_native_card(session, name, db_id, sql, display="scalar",
+                       viz_settings=None, template_tags=None):
     """Find card by name and update it, or create a new one.
 
     If multiple active cards share the same name, stop and list duplicates.
@@ -86,11 +88,15 @@ def upsert_native_card(session, name, db_id, sql, display="scalar", viz_settings
                   f"  created={m['created_at'][:10]}")
         sys.exit(1)
 
+    native_block = {"query": sql}
+    if template_tags:
+        native_block["template-tags"] = template_tags
+
     payload = {
         "name": name,
         "dataset_query": {
             "type": "native",
-            "native": {"query": sql},
+            "native": native_block,
             "database": db_id,
         },
         "display": display,
@@ -186,7 +192,57 @@ LOG_DEMAND_SQL = DEMAND_CURVE_SQL.replace(
     "ORDER BY product_name, ln_price"
 )
 
-# 9 cards in layout order
+INTERACTIVE_DEMAND_SQL = """
+WITH selected_products AS (
+    SELECT upc, product_name, category, true_elasticity
+    FROM analytics_analytics.dim_synthetic_products
+    WHERE {{category}} AND {{product}}
+),
+binned AS (
+    SELECT
+        p.product_name || ' (e=' || ROUND(p.true_elasticity::numeric, 2) || ')' AS product,
+        s.price,
+        s.units_sold,
+        NTILE(20) OVER (PARTITION BY s.upc ORDER BY s.price) AS price_bin
+    FROM analytics_analytics.fct_synthetic_daily_sales s
+    JOIN selected_products p ON s.upc = p.upc
+    WHERE s.price > 0 AND s.units_sold > 0
+)
+SELECT
+    price_bin AS bin,
+    product,
+    ROUND(AVG(price)::numeric, 2) AS price,
+    ROUND(AVG(units_sold)::numeric, 1) AS quantity
+FROM binned
+GROUP BY price_bin, product
+ORDER BY product, price_bin
+"""
+
+# Metabase field filter template tags for the interactive card.
+# Field IDs are Metabase-internal references to dim_synthetic_products columns.
+# See CLAUDE.md "Metabase field IDs for filters" for current values.
+INTERACTIVE_TEMPLATE_TAGS = {
+    "category": {
+        "id": "category_filter",
+        "name": "category",
+        "display-name": "Category",
+        "type": "dimension",
+        "widget-type": "string/=",
+        "dimension": ["field", 106, None],
+        "default": None,
+    },
+    "product": {
+        "id": "product_filter",
+        "name": "product",
+        "display-name": "Product",
+        "type": "dimension",
+        "widget-type": "string/=",
+        "dimension": ["field", 105, None],
+        "default": ["2% Milk"],
+    },
+}
+
+# 10 cards in layout order
 CARD_DEFS = [
     {
         "name": "Total Products",
@@ -305,6 +361,21 @@ CARD_DEFS = [
         },
         "col": 9, "row": 15, "size_x": 9, "size_y": 8,
     },
+    {
+        "name": "Demand Curve (Interactive)",
+        "sql": INTERACTIVE_DEMAND_SQL,
+        "display": "line",
+        "viz": {
+            "graph.dimensions": ["price", "product"],
+            "graph.metrics": ["quantity"],
+            "graph.x_axis.title_text": "Price ($)",
+            "graph.y_axis.title_text": "Quantity Demanded",
+            "graph.x_axis.scale": "linear",
+            "graph.y_axis.auto_split": False,
+        },
+        "template_tags": INTERACTIVE_TEMPLATE_TAGS,
+        "col": 0, "row": 23, "size_x": 18, "size_y": 8,
+    },
 ]
 
 
@@ -325,13 +396,14 @@ def main():
     db_id = find_database(session)
     print(f"Found database id={db_id}\n")
 
-    # ── Upsert 9 cards ──
+    # ── Upsert 10 cards ──
     print("Cards:")
     card_ids = []
     for defn in CARD_DEFS:
         card_id = upsert_native_card(
             session, defn["name"], db_id,
             defn["sql"], defn["display"], defn["viz"],
+            template_tags=defn.get("template_tags"),
         )
         card_ids.append(card_id)
 
@@ -371,7 +443,7 @@ def main():
     print(f"\nDashboard URL: {MB_URL}/dashboard/{dash_id}")
     print(f"Total cards managed: {len(CARD_DEFS)}"
           " (3 KPIs + category bar + elasticity scatter"
-          " + daily trend + error % + 2 demand curves)")
+          " + daily trend + error % + 3 demand curves)")
 
 
 if __name__ == "__main__":
