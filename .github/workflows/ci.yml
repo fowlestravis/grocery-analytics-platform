@@ -1,0 +1,133 @@
+# Workflow name: shown in the Actions tab and used by the README badge.
+name: CI
+
+# Triggers: every pull request, plus pushes (incl. merges) to main.
+# Pushes to other branches only run via their PR, so nothing runs twice.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Least privilege: the job's GITHUB_TOKEN can read the repo and nothing else.
+permissions:
+  contents: read
+
+# One run per branch/PR: a new push cancels the still-running older one.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Env vars for every step. Same names the scripts and dbt/profiles/profiles.yml
+# read. These are throwaway CI-only credentials for the service container
+# below, not secrets: the database only exists for the life of this job.
+env:
+  GROCERY_DB_HOST: localhost
+  GROCERY_DB_PORT: "5432"
+  GROCERY_DB_NAME: grocery_analytics
+  GROCERY_DB_USER: ci_user
+  GROCERY_DB_PASSWORD: ci_throwaway_password
+  # Point dbt at the repo's env_var()-based profile instead of ~/.dbt
+  DBT_PROFILES_DIR: ${{ github.workspace }}/dbt/profiles
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    # Hard stop if something hangs (a normal run takes ~1.5 min)
+    timeout-minutes: 30
+
+    # Sidecar Postgres 15, started before the steps and mapped to
+    # localhost:5432. Credentials repeat the env block above because
+    # service containers can't read the workflow `env` context.
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_throwaway_password
+          POSTGRES_DB: grocery_analytics
+        ports:
+          - 5432:5432
+        # Steps don't start until pg_isready reports healthy
+        options: >-
+          --health-cmd "pg_isready -U ci_user -d grocery_analytics"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      # Fetch the repo at the commit being tested
+      - uses: actions/checkout@v5
+
+      # Python 3.11 matches the Airflow image; pip downloads are cached,
+      # keyed on requirements.txt
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Fast syntax check of every tracked .py file (doesn't import them,
+      # so the Airflow DAG compiles without Airflow installed)
+      - name: Byte-compile all Python files
+        run: git ls-files -z '*.py' | xargs -0 python -m py_compile
+
+      # Pure-math tests for the demand curve functions (no database)
+      - name: Unit tests
+        run: pytest -v
+
+      # ── The daily_grocery_refresh DAG, in the same order ──────────────
+
+      # Writes data/raw/*.csv (seeded, so output is deterministic)
+      - name: Generate synthetic data
+        run: python scripts/generate_data.py
+
+      # CSVs -> raw schema in the service Postgres
+      - name: Load data to Postgres
+        run: python scripts/load_synthetic_data.py
+
+      # No packages.yml yet, so this is a no-op; kept so adding packages
+      # later just works
+      - name: dbt deps
+        working-directory: dbt/grocery_analytics
+        run: dbt deps
+
+      # Same selection the DAG uses: staging -> dims -> fact -> mart
+      - name: dbt run
+        working-directory: dbt/grocery_analytics
+        run: dbt run --select tag:synthetic tag:elasticity
+
+      # Estimates elasticities, writes validation_results/, and persists
+      # raw.elasticity_estimates for the dbt accuracy test
+      - name: Run demand analysis
+        run: python analysis/demand_analysis.py
+
+      # Plain `dbt test`: schema tests plus assert_elasticity_accuracy
+      # (fails if mean error > 5% or any product > 10%)
+      - name: dbt test
+        working-directory: dbt/grocery_analytics
+        run: dbt test
+
+      # ── Extra checks beyond the DAG ───────────────────────────────────
+
+      # Build the Tableau demand curve exports and check each CSV has rows
+      - name: Demand curve smoke test
+        run: |
+          python scripts/generate_demand_curves.py
+          for f in mart_demand_curves_v3 mart_balance_points_v3 mart_elasticity_v3; do
+            test "$(wc -l < "exports/$f.csv")" -gt 1 || { echo "exports/$f.csv is empty"; exit 1; }
+          done
+
+      # Save outputs as a downloadable zip on the run page. always() runs
+      # this even after a failure, which is when the files are most useful.
+      - name: Upload pipeline outputs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: pipeline-outputs
+          path: |
+            dbt/grocery_analytics/target/run_results.json
+            validation_results/
+          if-no-files-found: warn

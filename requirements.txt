@@ -8,5 +8,5 @@ scipy
 numpy
 matplotlib
 seaborn
-sqlalchemy
+sqlalchemy>=1.4,<2.1  # 2.1 defaults postgresql:// to psycopg 3; scripts rely on psycopg2
 pytest
