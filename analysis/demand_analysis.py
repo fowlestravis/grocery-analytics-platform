@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 from scipy import stats
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
@@ -482,6 +483,29 @@ conflates product-level demand differences with the price effect.
     
     print(f"\n✓ Validation report saved to {output_path}")
 
+def persist_estimates(engine, product_results):
+    """Write Method 2 estimates to raw.elasticity_estimates for the dbt accuracy test.
+
+    Exits non-zero on failure: a missing or stale table would otherwise let
+    dbt test validate the previous run's estimates.
+    """
+    if len(product_results) == 0:
+        raise SystemExit("✗ No elasticity estimates to persist to raw.elasticity_estimates")
+
+    estimates_df = product_results[['upc', 'category', 'true_elasticity',
+        'estimated_elasticity', 'error', 'error_pct', 'std_err',
+        'ci_lower', 'ci_upper', 'truth_in_ci', 'r_squared', 'p_value',
+        'observations', 'price_cv']].copy()
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("CREATE SCHEMA IF NOT EXISTS raw"))
+            conn.execute(text("DROP TABLE IF EXISTS raw.elasticity_estimates"))
+        estimates_df.to_sql('elasticity_estimates', engine, schema='raw',
+                            if_exists='replace', index=False)
+    except SQLAlchemyError as e:
+        raise SystemExit(f"✗ Failed to write raw.elasticity_estimates: {e}")
+    print(f"✓ Persisted {len(estimates_df)} estimates to raw.elasticity_estimates")
+
 def main():
     """Main execution function"""
     
@@ -499,9 +523,9 @@ def main():
             conn.execute(text("SELECT 1"))
         print("✓ Database connection successful\n")
     except Exception as e:
-        print(f"✗ Database connection failed: {e}")
-        return
-    
+        # Non-zero exit so the Airflow task (and CI step) fails visibly
+        raise SystemExit(f"✗ Database connection failed: {e}")
+
     # Load data
     mart_df = load_data(engine)
     daily_df = load_daily_data(engine)
@@ -519,17 +543,7 @@ def main():
     generate_report(simple_results, product_results, daily_df)
     
     # Persist estimates to database for dbt testing
-    if len(product_results) > 0:
-        estimates_df = product_results[['upc', 'category', 'true_elasticity',
-            'estimated_elasticity', 'error', 'error_pct', 'std_err',
-            'ci_lower', 'ci_upper', 'truth_in_ci', 'r_squared', 'p_value',
-            'observations', 'price_cv']].copy()
-        with engine.begin() as conn:
-            conn.execute(text("CREATE SCHEMA IF NOT EXISTS raw"))
-            conn.execute(text("DROP TABLE IF EXISTS raw.elasticity_estimates"))
-        estimates_df.to_sql('elasticity_estimates', engine, schema='raw',
-                            if_exists='replace', index=False)
-        print(f"✓ Persisted {len(estimates_df)} estimates to raw.elasticity_estimates")
+    persist_estimates(engine, product_results)
 
     # Save detailed results to CSV
     simple_results.to_csv(os.path.join(OUTPUT_DIR, 'category_results.csv'), index=False)

@@ -4,9 +4,9 @@ faker==20.1.0
 pandas==2.1.4
 psycopg2-binary==2.9.9
 python-dotenv==1.0.0
-scipy
-numpy
-matplotlib
-seaborn
+scipy>=1.17,<2  # only stats.linregress used, stable across 1.x; a 2.0 would be the place for API removals
+numpy>=1.26.4,<2  # hard limit: pandas 2.1.4 wheels are built against the numpy 1.x ABI and break on 2.x
+matplotlib>=3.10,<4  # basic pyplot/savefig only; matplotlib reserves breaking changes for majors
+seaborn>=0.13.2,<0.14  # pre-1.0, so minor releases can break API (0.13 reworked categorical plots)
 sqlalchemy>=1.4,<2.1  # 2.1 defaults postgresql:// to psycopg 3; scripts rely on psycopg2
 pytest
