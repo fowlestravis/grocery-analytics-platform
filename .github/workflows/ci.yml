@@ -12,15 +12,38 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GROCERY_DB_HOST: localhost
+  GROCERY_DB_PORT: "5432"
+  GROCERY_DB_NAME: grocery_analytics
+  GROCERY_DB_USER: ci_user
+  GROCERY_DB_PASSWORD: ci_throwaway_password
+  DBT_PROFILES_DIR: ${{ github.workspace }}/dbt/profiles
+
 jobs:
   pipeline:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
-    steps:
-      - uses: actions/checkout@v4
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci_user
+          POSTGRES_PASSWORD: ci_throwaway_password
+          POSTGRES_DB: grocery_analytics
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci_user -d grocery_analytics"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
-      - uses: actions/setup-python@v5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -34,3 +57,41 @@ jobs:
 
       - name: Unit tests
         run: pytest -v
+
+      - name: Generate synthetic data
+        run: python scripts/generate_data.py
+
+      - name: Load data to Postgres
+        run: python scripts/load_synthetic_data.py
+
+      - name: dbt deps
+        working-directory: dbt/grocery_analytics
+        run: dbt deps
+
+      - name: dbt run
+        working-directory: dbt/grocery_analytics
+        run: dbt run --select tag:synthetic tag:elasticity
+
+      - name: Run demand analysis
+        run: python analysis/demand_analysis.py
+
+      - name: dbt test
+        working-directory: dbt/grocery_analytics
+        run: dbt test
+
+      - name: Demand curve smoke test
+        run: |
+          python scripts/generate_demand_curves.py
+          for f in mart_demand_curves_v3 mart_balance_points_v3 mart_elasticity_v3; do
+            test "$(wc -l < "exports/$f.csv")" -gt 1 || { echo "exports/$f.csv is empty"; exit 1; }
+          done
+
+      - name: Upload pipeline outputs
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: pipeline-outputs
+          path: |
+            dbt/grocery_analytics/target/run_results.json
+            validation_results/
+          if-no-files-found: warn
