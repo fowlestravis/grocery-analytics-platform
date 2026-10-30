@@ -1,5 +1,7 @@
 # Grocery Analytics Platform
 
+[![CI](https://github.com/fowlestravis/grocery-analytics-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/fowlestravis/grocery-analytics-platform/actions/workflows/ci.yml)
+
 A grocery pricing analytics platform that estimates price elasticity of demand using log-log regression, validates the methodology against actual sales data, and surfaces actionable pricing recommendations through an interactive demand curve tool.
 
 📊 **[View the Tableau Public Dashboard](https://public.tableau.com/app/profile/tvfowles/viz/Elasticityv1/Dashboard1)**
