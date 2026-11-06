@@ -79,9 +79,9 @@ Expressed in average dollars per store per day, this metric is immediately actio
 The Tableau Public dashboard provides an interactive product-level pricing tool across 32 grocery products spanning four categories — Dairy, Produce, Snacks, and Beverages.
 
 - **Product selector** — choose any product from a dropdown filter and all views will update dynamically
-- **Three-curve demand visualization** — Units, Sales, and Contribution Margin plotted across the full observed price range with the balance point annotated
+- **Three-curve demand visualization** — Sales and Contribution Margin plotted in dollars on the left axis and Units on a separate right axis, across the observed price range and the ±20% guardrail window. Vertical lines mark the current price and the balance point, and the shaded area marks prices beyond the observed range
 - **Historical metrics panel** — current observed sales, contribution margin, units, and average retail price across all stores' observed sales
-- **Balance point panel** — revenue at optimal price, maximum achievable contribution margin, margin opportunity, and the optimal price itself
+- **Balance point panel** — revenue at the balance point, maximum contribution margin, margin opportunity at the balance point (within the ±20% guardrail), margin opportunity using observed prices only, and the balance point itself, plus a short note on what limits the recommendation: the guardrail, no interior optimum for inelastic products, or an optimum beyond or within observed prices
 
 ### A Note on Tableau Public vs Metabase
 
