@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/fowlestravis/grocery-analytics-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/fowlestravis/grocery-analytics-platform/actions/workflows/ci.yml)
 
-A grocery pricing analytics platform that estimates price elasticity of demand using log-log regression, validates the methodology against actual sales data, and surfaces actionable pricing recommendations through an interactive demand curve tool.
+A grocery pricing analytics platform that estimates price elasticity of demand using log-log regression, validates the methodology against known ground-truth elasticities in synthetic sales data, and surfaces actionable pricing recommendations through an interactive demand curve tool.
 
 📊 **[View the Tableau Public Dashboard](https://public.tableau.com/app/profile/tvfowles/viz/Elasticityv1/Dashboard1)**
 
@@ -20,7 +20,7 @@ Retailers (and grocers especially) need to understand how changing an item's pri
 
 Quantifying these changes (what microeconomists call the price elasticity of demand) is an important part of pricing analysis, promotion planning, and category management. This project is meant to solve a common problem with retail data: gaps or lack of clean sales data. Each product in this synthetic dataset has a known elasticity assigned from category-appropriate ranges found in academic economics literature (generally speaking, dairy staples are relatively inelastic, snacks relatively elastic, etc.). Those known elasticities are baked into the synthetic transaction data, and the regression methodology is then tested to see whether it can recover them. If the methodology we use can recover elasticities we already know to be true, we can trust it on real transactional data where the true elasticity is unknown.
 
-**Key result:** The pipeline validates log-log regression methodology for production use with a **2.4% average elasticity error** across 32 products.
+**Key result:** The pipeline validates log-log regression methodology against known ground truth with a **2.4% average elasticity error** across 32 products.
 
 ### Demand Curve Methodology
 
