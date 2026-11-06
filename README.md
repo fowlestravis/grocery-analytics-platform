@@ -105,7 +105,56 @@ The elasticity estimation methodology (log-log regression: `ln(Q) = β₀ + β�
 
 ## Part 2 : The Data Engineering Stack
 
-*Coming soon.* This section will cover the synthetic data generation approach, the five-layer dbt pipeline, validation methodology, Airflow orchestration, and infrastructure decisions. The short version: a PostgreSQL warehouse running in Docker, transformed by dbt, orchestrated by Airflow, and validated against known ground truth with ~2.4% average elasticity error across 32 products.
+Part 1 covers what the dashboard says. This part covers how the numbers get there and how I checked that they can be trusted. Everything runs locally in Docker, and the full pipeline is rebuilt and tested on every pull request.
+
+### Architecture
+
+```mermaid
+flowchart LR
+    GEN["generate_data.py<br/>seeded synthetic data"] -->|"load_synthetic_data.py"| RAW[("PostgreSQL<br/>raw schema")]
+    RAW --> DBT["dbt<br/>staging, dimensions, fact, mart"]
+    DBT --> ANA["demand_analysis.py<br/>log-log regression"]
+    ANA --> EST[("raw.elasticity_estimates")]
+    EST --> TEST["dbt test<br/>38 tests incl. accuracy gate"]
+    DBT --> TEST
+    EST --> CURVES["generate_demand_curves.py<br/>power-form curves"]
+    DBT --> CURVES
+    CURVES --> CSV["CSV exports"] --> TAB["Tableau Public"]
+    DBT --> MB["Metabase"]
+```
+
+The steps run in this order: generate, load, dbt run, analysis, dbt test. Airflow runs that sequence on a schedule, and GitHub Actions runs it on a clean machine for every pull request.
+
+### Synthetic data with known ground truth
+
+Real retail data never tells you the true elasticity, so you can't grade an estimation method against it. To get around that, I generate the data. Each of the 32 products gets an elasticity drawn from a category-appropriate range, and that value is built into about 280,000 daily store and product records from 2023 and 2024. Prices move through promotions (about 20% of days, with discounts of 10 to 25%) and small everyday changes of up to 3% either way, demand gets about 15% random noise, and costs are 55 to 70% of base price. The generator is seeded, so every run produces the same prices and sales. Only the made-up store names change. Because the true answers are known, the regression can be scored.
+
+### dbt layers and tests
+
+Data lands in a raw schema in PostgreSQL, and dbt builds from there: a staging view that cleans the raw transactions, dimension tables for products and stores, a daily sales fact table, and a validation mart that compares estimated and true elasticities. 38 dbt tests cover the models and sources. One of them, `assert_elasticity_accuracy`, fails the build if the mean elasticity error goes above 5% or any single product goes above 10%. A change that pushes the error past either limit can't merge.
+
+### Estimating elasticity
+
+`analysis/demand_analysis.py` runs two log-log regressions. The first regresses average price against average units across the products in each category. It doesn't recover the true elasticities, because differences between products get mixed up with the effect of price, and I keep it as a comparison. The second fits each product's own time series and is the headline method, with a 2.4% average error across the 32 products. The estimates are written back to `raw.elasticity_estimates`, which is what lets dbt test them. If the script can't reach the database or can't write its results, it exits with an error instead of reporting success.
+
+### Demand curves
+
+The estimated elasticity feeds a constant-elasticity demand curve, `Q = A × P^ε`, with `A` set so predicted units at the average price match the average daily units. Curves are evaluated in $0.01 steps. The balance point is the margin-maximizing price within a ±20% guardrail around the current price. Each product also gets a flag for what limits its recommendation: the guardrail, no interior optimum (inelastic products), or an optimum inside or beyond the observed prices.
+
+### Orchestration and infrastructure
+
+Docker Compose runs PostgreSQL and Metabase, and a second compose file runs Airflow 2.7.3 with the LocalExecutor. The DAG, `daily_grocery_refresh`, runs the five steps above, retries a failed step once after five minutes, and writes failures to a log file. I'll be honest about its role: the data is seeded, so every refresh rebuilds identical data, which makes the DAG a demonstration of orchestration, not something the numbers depend on. I keep it paused. Credentials live in a gitignored `.env` file (`.env.example` is the template), and the compose files refuse to start without it.
+
+### Continuous integration
+
+On every pull request and every push to main, GitHub Actions starts a clean Ubuntu machine with a temporary PostgreSQL 15 database and runs the same steps as the DAG, plus 15 pytest tests and a check that the demand curve exports are not empty. A run takes a little under two minutes. Main is protected, so a pull request can't merge until the `pipeline` check passes.
+
+### What I found and corrected
+
+- **The curves didn't match the model I had validated.** The first dashboard drew exponential curves, but the validated regression assumes constant elasticity, and the two disagree about how elasticity changes with price. Under the old curves the dashboard recommended price cuts for 26 of 32 products. The power form is the direct solution of the validated model, and it recommends increases for all of them. I rebuilt the curves and published the corrected dashboard.
+- **Most recommendations are set by the guardrail, not the data.** Under the corrected curves, 28 of 32 balance points sit at the edge of the ±20% guardrail, and 31 of 32 fall beyond prices seen in the data, because the generator only varies price by about 3% outside promotions. The dashboard now says so. Each product shows what limits its recommendation, the part of each curve beyond observed prices is shaded, and margin opportunity is shown both at the balance point and using observed prices only.
+- **A failing script reported success.** The analysis script used to exit cleanly when it couldn't reach the database, so the next step, dbt test, could pass on stale estimates from an earlier run. It now fails immediately.
+- **The first full-pipeline CI run caught a dependency problem.** A newer SQLAlchemy defaulted to a different Postgres driver, which broke any fresh install. It worked on my machine because of an older installed version. The dependency is now pinned, along with the four analysis libraries.
 
 ---
 
@@ -120,7 +169,10 @@ Docker Compose requires `.env` to be present — it will error on missing passwo
 
 ## Known Limitations
 
+- The data is synthetic. The 2.4% result shows the method works when its assumptions hold. It does not show it will on real data, where price endogeneity and confounders matter.
 - Three products exceed 5% estimation error: **Bell Peppers** (6.2%, Produce), **Cheddar Cheese** (5.7%, Dairy), and **Greek Yogurt** (5.2%, Dairy). All have low-magnitude elasticities (|ε| < 1.3) where small absolute errors produce larger percentage errors.
+- Balance points are mostly guardrail-limited, as described above. A generator with wider price variation, and costs derived from a known optimal price, would make the recommendations testable and is the next improvement.
+- Tableau Public only supports static data, so the dashboard is built from CSV exports and doesn't refresh from the database.
 
 ## Key Dependencies
 
