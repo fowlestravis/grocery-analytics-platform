@@ -143,7 +143,7 @@ The estimated elasticity feeds a constant-elasticity demand curve, `Q = A × P^�
 
 ### Orchestration and infrastructure
 
-Docker Compose runs PostgreSQL and Metabase, and a second compose file runs Airflow 2.7.3 with the LocalExecutor. The DAG, `daily_grocery_refresh`, runs the five steps above, retries a failed step once after five minutes, and writes failures to a log file. I'll be honest about its role: the data is seeded, so every refresh rebuilds identical data, which makes the DAG a demonstration of orchestration, not something the numbers depend on. Credentials live in a gitignored `.env` file (`.env.example` is the template), and the compose files refuse to start without it.
+Docker Compose runs PostgreSQL and Metabase, and a second compose file runs Airflow 2.7.3 with the LocalExecutor. The DAG, `daily_grocery_refresh`, runs the five steps above, retries a failed step once after five minutes, and writes failures to a log file. I'll be honest about its role: the data is seeded, so every refresh rebuilds identical data, which makes the DAG a demonstration of orchestration, not something the numbers depend on. Credentials live in a gitignored `.env` file (`.env.example` is the template), and the compose files refuse to start without it. I keep it paused.
 
 ### Continuous integration
 
@@ -155,13 +155,6 @@ On every pull request and every push to main, GitHub Actions starts a clean Ubun
 - **Most recommendations are set by the guardrail, not the data.** Under the corrected curves, 28 of 32 balance points sit at the edge of the ±20% guardrail, and 31 of 32 fall beyond prices seen in the data, because the generator only varies price by about 3% outside promotions. The dashboard now says so. Each product shows what limits its recommendation, the part of each curve beyond observed prices is shaded, and margin opportunity is shown both at the balance point and using observed prices only.
 - **A failing script reported success.** The analysis script used to exit cleanly when it couldn't reach the database, so the next step, dbt test, could pass on stale estimates from an earlier run. It now fails immediately.
 - **The first full-pipeline CI run caught a dependency problem.** A newer SQLAlchemy defaulted to a different Postgres driver, which broke any fresh install. It worked on my machine because of an older installed version. The dependency is now pinned, along with the four analysis libraries.
-
-### Known limitations
-
-- The data is synthetic. The 2.4% result shows the method works when its assumptions hold. It does not show it will on real data, where price endogeneity and confounders matter.
-- Three products have estimation errors above 5%: Bell Peppers (6.2%), Cheddar Cheese (5.7%) and Greek Yogurt (5.2%).
-- Balance points are mostly guardrail-limited, as described above. A generator with wider price variation, and costs derived from a known optimal price, would make the recommendations testable and is the next improvement.
-- Tableau Public only supports static data, so the dashboard is built from CSV exports and doesn't refresh from the database.
 
 ---
 
@@ -176,7 +169,10 @@ Docker Compose requires `.env` to be present — it will error on missing passwo
 
 ## Known Limitations
 
+- The data is synthetic. The 2.4% result shows the method works when its assumptions hold. It does not show it will on real data, where price endogeneity and confounders matter.
 - Three products exceed 5% estimation error: **Bell Peppers** (6.2%, Produce), **Cheddar Cheese** (5.7%, Dairy), and **Greek Yogurt** (5.2%, Dairy). All have low-magnitude elasticities (|ε| < 1.3) where small absolute errors produce larger percentage errors.
+- Balance points are mostly guardrail-limited, as described above. A generator with wider price variation, and costs derived from a known optimal price, would make the recommendations testable and is the next improvement.
+- Tableau Public only supports static data, so the dashboard is built from CSV exports and doesn't refresh from the database.
 
 ## Key Dependencies
 
