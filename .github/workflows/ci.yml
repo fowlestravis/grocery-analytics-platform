@@ -12,10 +12,11 @@ on:
 permissions:
   contents: read
 
-# One run per branch/PR: a new push cancels the still-running older one.
+# One run per branch/PR. On a PR, a new push cancels the still-running older
+# run. On main nothing is cancelled, so every merge finishes its own run.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # Env vars for every step. Same names the scripts and dbt/profiles/profiles.yml
 # read. These are throwaway CI-only credentials for the service container
