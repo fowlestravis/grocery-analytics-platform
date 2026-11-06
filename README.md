@@ -143,7 +143,7 @@ The estimated elasticity feeds a constant-elasticity demand curve, `Q = A Ã— P^Î
 
 ### Orchestration and infrastructure
 
-Docker Compose runs PostgreSQL and Metabase, and a second compose file runs Airflow 2.7.3 with the LocalExecutor. The DAG, `daily_grocery_refresh`, runs the five steps above, retries a failed step once after five minutes, and writes failures to a log file. I'll be honest about its role: the data is seeded, so every refresh rebuilds identical data, which makes the DAG a demonstration of orchestration, not something the numbers depend on. Credentials live in a gitignored `.env` file (`.env.example` is the template), and the compose files refuse to start without it. I keep it paused.
+Docker Compose runs PostgreSQL and Metabase, and a second compose file runs Airflow 2.7.3 with the LocalExecutor. The DAG, `daily_grocery_refresh`, runs the five steps above, retries a failed step once after five minutes, and writes failures to a log file. I'll be honest about its role: the data is seeded, so every refresh rebuilds identical data, which makes the DAG a demonstration of orchestration, not something the numbers depend on. I keep it paused. Credentials live in a gitignored `.env` file (`.env.example` is the template), and the compose files refuse to start without it.
 
 ### Continuous integration
 
