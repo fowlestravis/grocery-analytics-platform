@@ -167,6 +167,31 @@ docker compose up -d    # starts PostgreSQL warehouse + Metabase
 
 Docker Compose requires `.env` to be present — it will error on missing password variables. See `.env.example` for the full list.
 
+## Run Kafka locally
+
+A single Kafka broker in KRaft mode (no ZooKeeper), reachable from the host at `localhost:9092`. It needs no `.env`.
+
+```bash
+# Start the broker and wait until it reports healthy
+docker compose -f docker-compose-kafka.yml up -d
+docker inspect -f '{{.State.Health.Status}}' grocery_kafka
+
+# Create a topic with 3 partitions
+docker exec grocery_kafka /opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+  --create --topic scratch --partitions 3 --replication-factor 1
+
+# Produce a few messages (one per line; Ctrl-D to finish)
+docker exec -it grocery_kafka /opt/kafka/bin/kafka-console-producer.sh --bootstrap-server localhost:9092 \
+  --topic scratch
+
+# Consume them from the start (Ctrl-C to stop)
+docker exec -it grocery_kafka /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server localhost:9092 \
+  --topic scratch --from-beginning
+
+# Stop the broker (add -v to also delete its data volume)
+docker compose -f docker-compose-kafka.yml down
+```
+
 ## Known Limitations
 
 - The data is synthetic. The 2.4% result shows the method works when its assumptions hold. It does not show it will on real data, where price endogeneity and confounders matter.
